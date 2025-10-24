@@ -1,0 +1,16 @@
+{
+  "name": "Local Message Editor",
+  "description": "Edit Discord messages locally without sending changes to the server. Your edits are only visible to you.",
+  "authors": [
+    {
+      "name": "Your Name"
+    }
+  ],
+  "main": "src/index.tsx",
+  "version": "2.1.0",
+  "vendetta": {
+    "icon": "📝"
+  }
+}
+
+
