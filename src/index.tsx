@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.2.0: Fixed loading issues
+// ✅ v2.2.1: Fixed ES6 import issues
 // Compatible with both Revenge and Vendetta
 //
 // This plugin allows you to edit Discord messages locally without sending
@@ -10,63 +10,42 @@
 //
 // ============================================================================
 
-// Imports with error handling
-let storage, findByProps, before, after, showToast, React, RN;
+// Standard ES6 imports for Revenge/Vendetta
+import { storage } from "@vendetta/plugin";
+import { findByProps } from "@vendetta/metro";
+import { before, after } from "@vendetta/patcher";
+import { showToast } from "@vendetta/ui/toasts";
+import { React, ReactNative as RN } from "@vendetta/metro/common";
 
-try {
-  // Try Revenge/Vendetta imports
-  ({ storage } = require("@vendetta/plugin"));
-  ({ findByProps } = require("@vendetta/metro"));
-  ({ before, after } = require("@vendetta/patcher"));
-  ({ showToast } = require("@vendetta/ui/toasts"));
-  ({ React, ReactNative: RN } = require("@vendetta/metro/common"));
-  
-  console.log("[LocalMessageEditor] ✓ Modules imported successfully");
-} catch (error) {
-  console.error("[LocalMessageEditor] ❌ Failed to import modules:", error);
-  // Plugin will fail gracefully
-}
-
-// Check if modules loaded successfully
-if (!RN || !storage) {
-  console.error("[LocalMessageEditor] ❌ Critical modules missing, plugin cannot load");
-}
-
-const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN || {};
+const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN;
 
 // Initialize storage for edits
-if (storage) {
-  storage.edits ??= {};
-}
+storage.edits ??= {};
 
 // Helper functions to manage edits
 function setEdit(messageId: string, content: string) {
-  if (!storage) return;
   storage.edits = {
-    ...(storage.edits || {}),
+    ...storage.edits,
     [messageId]: content,
   };
 }
 
 function getEdit(messageId: string): string | undefined {
-  if (!storage) return undefined;
   return storage.edits?.[messageId];
 }
 
 function hasEdit(messageId: string): boolean {
-  if (!storage) return false;
   return messageId in (storage.edits || {});
 }
 
 function clearEdit(messageId: string) {
-  if (!storage) return;
-  const newEdits = { ...(storage.edits || {}) };
+  const newEdits = { ...storage.edits };
   delete newEdits[messageId];
   storage.edits = newEdits;
 }
 
 // Move styles outside component to prevent recreation on every render
-const styles = StyleSheet?.create ? StyleSheet.create({
+const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.85)",
@@ -131,7 +110,7 @@ const styles = StyleSheet?.create ? StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
   },
-}) : {};
+});
 
 // Modal state - needs to be managed outside component
 let modalVisible = false;
@@ -250,35 +229,13 @@ let ModalInstance: any = null;
 // Plugin entry point
 export default {
   onLoad() {
-    console.log("[LocalMessageEditor] Loading plugin v2.2.0...");
-
-    // Check if critical modules are available
-    if (!storage || !findByProps || !before || !after || !showToast || !React || !RN) {
-      console.error("[LocalMessageEditor] ❌ Critical modules missing!");
-      console.error("[LocalMessageEditor] storage:", !!storage);
-      console.error("[LocalMessageEditor] findByProps:", !!findByProps);
-      console.error("[LocalMessageEditor] before:", !!before);
-      console.error("[LocalMessageEditor] after:", !!after);
-      console.error("[LocalMessageEditor] showToast:", !!showToast);
-      console.error("[LocalMessageEditor] React:", !!React);
-      console.error("[LocalMessageEditor] RN:", !!RN);
-      
-      // Still try to show toast if available
-      if (showToast) {
-        showToast("LocalMessageEditor: Module import failed", "error");
-      }
-      return;
-    }
-
-    console.log("[LocalMessageEditor] ✓ All modules available");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.1...");
 
     try {
       // Create modal instance
-      if (React && EditModal) {
-        const modalRoot = React.createElement(EditModal);
-        ModalInstance = modalRoot;
-        console.log("[LocalMessageEditor] ✓ Modal instance created");
-      }
+      const modalRoot = React.createElement(EditModal);
+      ModalInstance = modalRoot;
+      console.log("[LocalMessageEditor] ✓ Modal instance created");
 
       // Find Discord modules
       const MessageStore = findByProps("getMessage", "getMessages");
