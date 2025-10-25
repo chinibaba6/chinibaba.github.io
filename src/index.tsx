@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.2.1: Fixed ES6 import issues
+// ✅ v2.2.2: Fixed storage initialization for Revenge 301.8
 // Compatible with both Revenge and Vendetta
 //
 // This plugin allows you to edit Discord messages locally without sending
@@ -19,11 +19,15 @@ import { React, ReactNative as RN } from "@vendetta/metro/common";
 
 const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN;
 
-// Initialize storage for edits
-storage.edits ??= {};
-
 // Helper functions to manage edits
+function initStorage() {
+  if (!storage.edits) {
+    storage.edits = {};
+  }
+}
+
 function setEdit(messageId: string, content: string) {
+  if (!storage.edits) storage.edits = {};
   storage.edits = {
     ...storage.edits,
     [messageId]: content,
@@ -39,6 +43,7 @@ function hasEdit(messageId: string): boolean {
 }
 
 function clearEdit(messageId: string) {
+  if (!storage.edits) return;
   const newEdits = { ...storage.edits };
   delete newEdits[messageId];
   storage.edits = newEdits;
@@ -229,9 +234,13 @@ let ModalInstance: any = null;
 // Plugin entry point
 export default {
   onLoad() {
-    console.log("[LocalMessageEditor] Loading plugin v2.2.1...");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.2 for Revenge 301.8...");
 
     try {
+      // Initialize storage first
+      initStorage();
+      console.log("[LocalMessageEditor] ✓ Storage initialized");
+
       // Create modal instance
       const modalRoot = React.createElement(EditModal);
       ModalInstance = modalRoot;
