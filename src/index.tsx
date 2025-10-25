@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.2.2: Fixed storage initialization for Revenge 301.8
+// ✅ v2.2.3: Removed settings property, enhanced error logging for Revenge 301.8
 // Compatible with both Revenge and Vendetta
 //
 // This plugin allows you to edit Discord messages locally without sending
@@ -234,7 +234,9 @@ let ModalInstance: any = null;
 // Plugin entry point
 export default {
   onLoad() {
-    console.log("[LocalMessageEditor] Loading plugin v2.2.2 for Revenge 301.8...");
+    console.log("[LocalMessageEditor] ========================================");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.3 for Revenge 301.8...");
+    console.log("[LocalMessageEditor] ========================================");
 
     try {
       // Initialize storage first
@@ -379,12 +381,19 @@ export default {
         console.warn("[LocalMessageEditor] ⚠️ Action sheet not found - context menu won't work");
       }
 
-      console.log("[LocalMessageEditor] Plugin loaded successfully!");
-      showToast("LocalMessageEditor loaded", "success");
+      console.log("[LocalMessageEditor] ========================================");
+      console.log("[LocalMessageEditor] ✅ Plugin loaded successfully!");
+      console.log("[LocalMessageEditor] ========================================");
+      showToast("LocalMessageEditor loaded ✅", "success");
 
     } catch (error) {
-      console.error("[LocalMessageEditor] Failed to load:", error);
-      showToast("LocalMessageEditor: Error loading plugin", "error");
+      console.error("[LocalMessageEditor] ========================================");
+      console.error("[LocalMessageEditor] ❌ FAILED TO LOAD");
+      console.error("[LocalMessageEditor] Error:", error);
+      console.error("[LocalMessageEditor] Error stack:", error?.stack);
+      console.error("[LocalMessageEditor] ========================================");
+      showToast("LocalMessageEditor: Error - Check console", "error");
+      throw error; // Re-throw so Revenge sees it
     }
   },
 
@@ -411,8 +420,5 @@ export default {
     } catch (error) {
       console.error("[LocalMessageEditor] Error during unload:", error);
     }
-  },
-
-  // Settings UI renders the modal
-  settings: EditModal,
+  }
 };
