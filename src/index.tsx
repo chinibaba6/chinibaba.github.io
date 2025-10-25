@@ -2,21 +2,21 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.2.3: Removed settings property, enhanced error logging for Revenge 301.8
-// Compatible with both Revenge and Vendetta
+// ✅ v2.2.4: Simplified structure following Revenge plugin patterns
+// Compatible with Revenge 301.8 and Vendetta
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
 //
 // ============================================================================
 
-// Standard ES6 imports for Revenge/Vendetta
 import { storage } from "@vendetta/plugin";
 import { findByProps } from "@vendetta/metro";
 import { before, after } from "@vendetta/patcher";
 import { showToast } from "@vendetta/ui/toasts";
 import { React, ReactNative as RN } from "@vendetta/metro/common";
 
+// Extract components
 const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN;
 
 // Helper functions to manage edits
@@ -214,14 +214,32 @@ function EditModal() {
   );
 }
 
-// Helper to show modal
+// Helper to show modal (lazy load)
 function showEditModal(message: { id: string; content: string }) {
-  if (setCurrentMessage && setModalVisible) {
-    setCurrentMessage(message);
-    setModalVisible(true);
-  } else {
-    console.warn("[LocalMessageEditor] Modal not ready");
-    showToast("Please wait, modal is loading", "warning");
+  try {
+    // Lazy create modal instance if needed
+    if (!ModalInstance) {
+      ModalInstance = React.createElement(EditModal);
+      console.log("[LocalMessageEditor] Modal instance created on-demand");
+    }
+    
+    if (setCurrentMessage && setModalVisible) {
+      setCurrentMessage(message);
+      setModalVisible(true);
+    } else {
+      console.warn("[LocalMessageEditor] Modal not ready yet");
+      showToast("Opening editor...", "info");
+      // Try again after a short delay
+      setTimeout(() => {
+        if (setCurrentMessage && setModalVisible) {
+          setCurrentMessage(message);
+          setModalVisible(true);
+        }
+      }, 100);
+    }
+  } catch (error) {
+    console.error("[LocalMessageEditor] Error showing modal:", error);
+    showToast("Failed to open editor", "error");
   }
 }
 
@@ -235,7 +253,7 @@ let ModalInstance: any = null;
 export default {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading plugin v2.2.3 for Revenge 301.8...");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.4 for Revenge 301.8...");
     console.log("[LocalMessageEditor] ========================================");
 
     try {
@@ -243,10 +261,8 @@ export default {
       initStorage();
       console.log("[LocalMessageEditor] ✓ Storage initialized");
 
-      // Create modal instance
-      const modalRoot = React.createElement(EditModal);
-      ModalInstance = modalRoot;
-      console.log("[LocalMessageEditor] ✓ Modal instance created");
+      // Don't create modal instance here - it will be lazy loaded when needed
+      console.log("[LocalMessageEditor] ✓ Modal will be lazy loaded");
 
       // Find Discord modules
       const MessageStore = findByProps("getMessage", "getMessages");
