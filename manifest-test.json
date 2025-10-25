@@ -1,0 +1,15 @@
+{
+  "name": "Test Plugin",
+  "description": "Minimal test to check if plugins work at all",
+  "authors": [
+    {
+      "name": "chinibaba6"
+    }
+  ],
+  "main": "src/index-test.tsx",
+  "version": "1.0.0",
+  "vendetta": {
+    "icon": "🧪"
+  }
+}
+
