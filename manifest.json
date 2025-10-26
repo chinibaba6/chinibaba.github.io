@@ -7,7 +7,7 @@
     }
   ],
   "main": "src/index.tsx",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "vendetta": {
     "icon": "📝"
   },

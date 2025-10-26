@@ -208,89 +208,131 @@ const unpatches: (() => void)[] = [];
 // Main plugin export
 export default {
   onLoad() {
-    console.log("[LocalMessageEditor] Loading v2.3.0...");
-    
-    initStorage();
-    console.log("[LocalMessageEditor] Storage initialized");
+    try {
+      console.log("[LocalMessageEditor] Loading v2.3.1...");
+      
+      initStorage();
+      console.log("[LocalMessageEditor] Storage initialized");
 
-    // Find MessageStore
-    const MessageStore = findByProps("getMessage", "getMessages");
-    if (!MessageStore) {
-      console.error("[LocalMessageEditor] MessageStore not found");
-      showToast("LocalMessageEditor: MessageStore not found", "error");
-      return;
-    }
-    console.log("[LocalMessageEditor] MessageStore found");
+      // Find MessageStore
+      const MessageStore = findByProps("getMessage", "getMessages");
+      if (!MessageStore) {
+        console.error("[LocalMessageEditor] MessageStore not found");
+        showToast("LocalMessageEditor: MessageStore not found", "error");
+        // Don't return, let plugin load anyway
+      } else {
+        console.log("[LocalMessageEditor] MessageStore found");
 
-    // Patch getMessage
-    if (MessageStore.getMessage) {
-      unpatches.push(after("getMessage", MessageStore, (args, res) => {
-        if (res?.id && hasEdit(res.id)) {
-          return { ...res, content: getEdit(res.id) || res.content };
+        // Patch getMessage
+        if (MessageStore.getMessage) {
+          try {
+            unpatches.push(after("getMessage", MessageStore, (args, res) => {
+              try {
+                if (res?.id && hasEdit(res.id)) {
+                  return { ...res, content: getEdit(res.id) || res.content };
+                }
+              } catch (e) {
+                console.error("[LocalMessageEditor] Error in getMessage patch:", e);
+              }
+              return res;
+            }));
+            console.log("[LocalMessageEditor] Patched getMessage");
+          } catch (e) {
+            console.error("[LocalMessageEditor] Failed to patch getMessage:", e);
+          }
         }
-        return res;
-      }));
-      console.log("[LocalMessageEditor] Patched getMessage");
-    }
 
-    // Patch getMessages
-    if (MessageStore.getMessages) {
-      unpatches.push(after("getMessages", MessageStore, (args, res) => {
-        if (!res) return res;
-        const messages = res._array || res;
-        if (Array.isArray(messages)) {
-          const edited = messages.map((msg: any) => {
-            if (msg?.id && hasEdit(msg.id)) {
-              return { ...msg, content: getEdit(msg.id) || msg.content };
-            }
-            return msg;
-          });
-          return res._array ? { ...res, _array: edited } : edited;
-        }
-        return res;
-      }));
-      console.log("[LocalMessageEditor] Patched getMessages");
-    }
-
-    // Patch action sheet for context menu
-    const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
-    if (LazyActionSheet?.openLazy) {
-      unpatches.push(before("openLazy", LazyActionSheet, (args) => {
-        const [component, key, props] = args;
-        if (props?.message?.id && props?.message?.content) {
-          const originalComponent = component;
-          args[0] = () => {
-            const OriginalSheet = typeof originalComponent === "function" ? originalComponent() : originalComponent;
-            return React.createElement(
-              React.Fragment,
-              null,
-              OriginalSheet,
-              React.createElement(
-                Pressable,
-                {
-                  style: styles.actionSheetButton,
-                  onPress: () => {
-                    if (LazyActionSheet.hideActionSheet) {
-                      LazyActionSheet.hideActionSheet();
+        // Patch getMessages
+        if (MessageStore.getMessages) {
+          try {
+            unpatches.push(after("getMessages", MessageStore, (args, res) => {
+              try {
+                if (!res) return res;
+                const messages = res._array || res;
+                if (Array.isArray(messages)) {
+                  const edited = messages.map((msg: any) => {
+                    if (msg?.id && hasEdit(msg.id)) {
+                      return { ...msg, content: getEdit(msg.id) || msg.content };
                     }
-                    showEditModal(props.message);
-                  },
-                },
-                React.createElement(
-                  Text,
-                  { style: styles.actionSheetText },
-                  hasEdit(props.message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally"
-                )
-              )
-            );
-          };
+                    return msg;
+                  });
+                  return res._array ? { ...res, _array: edited } : edited;
+                }
+              } catch (e) {
+                console.error("[LocalMessageEditor] Error in getMessages patch:", e);
+              }
+              return res;
+            }));
+            console.log("[LocalMessageEditor] Patched getMessages");
+          } catch (e) {
+            console.error("[LocalMessageEditor] Failed to patch getMessages:", e);
+          }
         }
-      }));
-      console.log("[LocalMessageEditor] Patched action sheet");
-    }
+      }
 
-    console.log("[LocalMessageEditor] ✅ Loaded successfully!");
-    showToast("LocalMessageEditor loaded ✅", "success");
+      // Patch action sheet for context menu
+      try {
+        const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
+        if (LazyActionSheet?.openLazy) {
+          unpatches.push(before("openLazy", LazyActionSheet, (args) => {
+            try {
+              const [component, key, props] = args;
+              if (props?.message?.id && props?.message?.content) {
+                const originalComponent = component;
+                args[0] = () => {
+                  try {
+                    const OriginalSheet = typeof originalComponent === "function" ? originalComponent() : originalComponent;
+                    return React.createElement(
+                      React.Fragment,
+                      null,
+                      OriginalSheet,
+                      React.createElement(
+                        Pressable,
+                        {
+                          style: styles.actionSheetButton,
+                          onPress: () => {
+                            try {
+                              if (LazyActionSheet.hideActionSheet) {
+                                LazyActionSheet.hideActionSheet();
+                              }
+                              showEditModal(props.message);
+                            } catch (e) {
+                              console.error("[LocalMessageEditor] Error in modal open:", e);
+                            }
+                          },
+                        },
+                        React.createElement(
+                          Text,
+                          { style: styles.actionSheetText },
+                          hasEdit(props.message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally"
+                        )
+                      )
+                    );
+                  } catch (e) {
+                    console.error("[LocalMessageEditor] Error wrapping sheet:", e);
+                    return typeof originalComponent === "function" ? originalComponent() : originalComponent;
+                  }
+                };
+              }
+            } catch (e) {
+              console.error("[LocalMessageEditor] Error in action sheet patch:", e);
+            }
+          }));
+          console.log("[LocalMessageEditor] Patched action sheet");
+        } else {
+          console.warn("[LocalMessageEditor] Action sheet not found");
+        }
+      } catch (e) {
+        console.error("[LocalMessageEditor] Failed to patch action sheet:", e);
+      }
+
+      console.log("[LocalMessageEditor] ✅ Loaded successfully!");
+      showToast("LocalMessageEditor loaded ✅", "success");
+    } catch (error) {
+      console.error("[LocalMessageEditor] Fatal error in onLoad:", error);
+      showToast("LocalMessageEditor: Failed to load - check console", "error");
+      // Don't throw - let the plugin still load
+    }
   },
 
   onUnload() {
@@ -300,7 +342,5 @@ export default {
     setModalVisible = null;
     setCurrentMessage = null;
     console.log("[LocalMessageEditor] Unloaded");
-  },
-
-  Settings: EditModal,
+  }
 };
