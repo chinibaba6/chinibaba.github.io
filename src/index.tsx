@@ -218,7 +218,7 @@ const unpatches = [];
 module.exports = {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.7...");
+      console.log("[LocalMessageEditor] Loading v2.3.8 (debug mode)...");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -278,11 +278,21 @@ module.exports = {
         }
       }
 
-      // Patch action sheet for context menu - simplified approach
+      // Patch action sheet for context menu - try multiple approaches
       try {
+        console.log("[LocalMessageEditor] Searching for action sheet modules...");
+        
+        // Try different ways to find the action sheet
         const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
+        const ActionSheet = findByProps("hideActionSheet");
+        const BottomSheetModule = findByProps("openBottomSheet");
+        
+        console.log("[LocalMessageEditor] LazyActionSheet:", !!LazyActionSheet);
+        console.log("[LocalMessageEditor] ActionSheet:", !!ActionSheet);
+        console.log("[LocalMessageEditor] BottomSheetModule:", !!BottomSheetModule);
         
         if (LazyActionSheet && LazyActionSheet.openLazy) {
+          console.log("[LocalMessageEditor] Using LazyActionSheet.openLazy");
           unpatches.push(before(LazyActionSheet, "openLazy", (args) => {
             try {
               const [component, key, props] = args;
@@ -338,9 +348,25 @@ module.exports = {
               console.error("[LocalMessageEditor] Error in openLazy patch:", e);
             }
           }));
-          console.log("[LocalMessageEditor] Patched action sheet (openLazy)");
+          console.log("[LocalMessageEditor] ✓ Patched action sheet (openLazy)");
+        } else if (BottomSheetModule && BottomSheetModule.openBottomSheet) {
+          console.log("[LocalMessageEditor] Using BottomSheetModule.openBottomSheet");
+          unpatches.push(before(BottomSheetModule, "openBottomSheet", (args) => {
+            try {
+              console.log("[LocalMessageEditor] openBottomSheet called with args:", args);
+              const config = args[0];
+              if (config?.message?.id) {
+                console.log("[LocalMessageEditor] Found message in bottomSheet:", config.message.id);
+              }
+            } catch (e) {
+              console.error("[LocalMessageEditor] Error in bottomSheet patch:", e);
+            }
+          }));
+          console.log("[LocalMessageEditor] ✓ Patched bottom sheet");
         } else {
-          console.warn("[LocalMessageEditor] LazyActionSheet not found");
+          console.error("[LocalMessageEditor] ❌ No action sheet module found!");
+          console.log("[LocalMessageEditor] Try checking Revenge Playground for available modules");
+          showToast("LocalMessageEditor: Action sheet not found", "error");
         }
       } catch (e) {
         console.error("[LocalMessageEditor] Failed to patch action sheet:", e);
