@@ -218,7 +218,8 @@ const unpatches = [];
 module.exports = {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.8 (debug mode)...");
+      console.log("[LocalMessageEditor] Loading v2.3.9 (with toasts)...");
+      showToast("LocalMessageEditor starting...", "info");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -290,6 +291,18 @@ module.exports = {
         console.log("[LocalMessageEditor] LazyActionSheet:", !!LazyActionSheet);
         console.log("[LocalMessageEditor] ActionSheet:", !!ActionSheet);
         console.log("[LocalMessageEditor] BottomSheetModule:", !!BottomSheetModule);
+        
+        // Show toast to confirm what we found
+        const foundModules = [];
+        if (LazyActionSheet) foundModules.push("LazyActionSheet");
+        if (ActionSheet) foundModules.push("ActionSheet");
+        if (BottomSheetModule) foundModules.push("BottomSheet");
+        
+        if (foundModules.length > 0) {
+          showToast("Found: " + foundModules.join(", "), "info");
+        } else {
+          showToast("No action sheet modules found!", "error");
+        }
         
         if (LazyActionSheet && LazyActionSheet.openLazy) {
           console.log("[LocalMessageEditor] Using LazyActionSheet.openLazy");
