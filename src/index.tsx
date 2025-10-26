@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.5.0: Implemented working context menu using Antied pattern
+// ✅ v2.5.1: Added extensive debug logging to diagnose loading issues
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -211,12 +211,16 @@ const unpatches = [];
 // Main plugin export
 module.exports = {
   onLoad() {
+    console.log("[LocalMessageEditor] === START LOADING v2.5.1 ===");
+    
     try {
-      console.log("[LocalMessageEditor] Loading v2.5.0...");
-      showToast("LocalMessageEditor v2.5.0", "info");
-      
+      console.log("[LocalMessageEditor] Initializing storage...");
       initStorage();
-      console.log("[LocalMessageEditor] Storage initialized");
+      console.log("[LocalMessageEditor] ✓ Storage initialized");
+      
+      console.log("[LocalMessageEditor] Showing toast...");
+      showToast("LocalMessageEditor v2.5.1 loading...", "info");
+      console.log("[LocalMessageEditor] ✓ Toast shown");
 
       // Find MessageStore
       const MessageStore = findByProps("getMessage", "getMessages");
@@ -370,13 +374,21 @@ module.exports = {
         console.error("[LocalMessageEditor] Failed to patch action sheet:", e);
       }
 
-      console.log("[LocalMessageEditor] ✅ Plugin loaded successfully!");
+      console.log("[LocalMessageEditor] === PLUGIN LOADED SUCCESSFULLY ===");
       showToast("LocalMessageEditor loaded! ✅", "success");
-      
+
     } catch (error) {
-      console.error("[LocalMessageEditor] Fatal error:", error);
-      showToast("Failed to load: " + error.message, "error");
+      console.error("[LocalMessageEditor] === FATAL ERROR ===");
+      console.error("[LocalMessageEditor]", error);
+      console.error("[LocalMessageEditor] Stack:", error?.stack);
+      try {
+        showToast("LocalMessageEditor ERROR - check logs", "error");
+      } catch (e) {
+        console.error("[LocalMessageEditor] Can't even show toast:", e);
+      }
     }
+    
+    console.log("[LocalMessageEditor] === onLoad() COMPLETED ===");
   },
 
   onUnload() {
