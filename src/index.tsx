@@ -214,15 +214,9 @@ function EditModal() {
   );
 }
 
-// Helper to show modal (lazy load)
+// Helper to show modal
 function showEditModal(message: { id: string; content: string }) {
   try {
-    // Lazy create modal instance if needed
-    if (!ModalInstance) {
-      ModalInstance = React.createElement(EditModal);
-      console.log("[LocalMessageEditor] Modal instance created on-demand");
-    }
-    
     if (setCurrentMessage && setModalVisible) {
       setCurrentMessage(message);
       setModalVisible(true);
@@ -246,8 +240,10 @@ function showEditModal(message: { id: string; content: string }) {
 // Store unpatch functions
 const unpatches: (() => void)[] = [];
 
-// Store modal instance
-let ModalInstance: any = null;
+// Settings component that renders the modal
+function Settings() {
+  return React.createElement(EditModal);
+}
 
 // Plugin entry point
 export default {
@@ -260,9 +256,7 @@ export default {
       // Initialize storage first
       initStorage();
       console.log("[LocalMessageEditor] ✓ Storage initialized");
-
-      // Don't create modal instance here - it will be lazy loaded when needed
-      console.log("[LocalMessageEditor] ✓ Modal will be lazy loaded");
+      console.log("[LocalMessageEditor] ✓ Modal will be rendered by Settings component");
 
       // Find Discord modules
       const MessageStore = findByProps("getMessage", "getMessages");
@@ -430,11 +424,13 @@ export default {
       // Clear modal references
       setModalVisible = null;
       setCurrentMessage = null;
-      ModalInstance = null;
 
       console.log("[LocalMessageEditor] Plugin unloaded!");
     } catch (error) {
       console.error("[LocalMessageEditor] Error during unload:", error);
     }
-  }
+  },
+
+  // Export Settings component to ensure modal is mounted
+  Settings
 };
