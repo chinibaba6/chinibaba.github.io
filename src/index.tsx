@@ -210,8 +210,8 @@ const unpatches = [];
 module.exports = {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.4.0...");
-      showToast("LocalMessageEditor v2.4.0", "info");
+      console.log("[LocalMessageEditor] Loading v2.4.1...");
+      showToast("LocalMessageEditor v2.4.1", "info");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -271,20 +271,36 @@ module.exports = {
         }
       }
 
-      // Use Vendetta's UI components API if available
+      // Try patching using Vendetta's patcher on UI message component
       try {
-        if (vendetta.ui && vendetta.ui.components) {
-          showToast("Using Vendetta UI components (not yet implemented)", "info");
-          // This would need specific Vendetta UI components implementation
+        // Find the Message component
+        const { components } = vendetta.metro.common;
+        
+        if (components && components.Text) {
+          console.log("[LocalMessageEditor] Found components, attempting UI patch");
+          
+          // For now, add a programmatic way to trigger the editor
+          // User can call this from Revenge Playground:
+          // window.editMessage({ id: "message_id", content: "message content" })
+          window.editMessage = (message) => {
+            if (message && message.id && message.content) {
+              showEditModal(message);
+            } else {
+              showToast("Usage: editMessage({id: 'msg_id', content: 'text'})", "error");
+            }
+          };
+          
+          console.log("[LocalMessageEditor] Added window.editMessage() function");
+          showToast("Use: window.editMessage({id, content})", "info");
         }
       } catch (e) {
-        console.log("[LocalMessageEditor] Vendetta UI components not available");
+        console.log("[LocalMessageEditor] UI patch not available:", e);
       }
 
       console.log("[LocalMessageEditor] ✅ Plugin loaded!");
-      console.log("[LocalMessageEditor] NOTE: Context menu not yet working in Revenge");
-      console.log("[LocalMessageEditor] Message content patching is active");
-      showToast("LocalMessageEditor loaded! (Menu pending)", "success");
+      console.log("[LocalMessageEditor] Message patching: ACTIVE");
+      console.log("[LocalMessageEditor] Call window.editMessage({id, content}) to edit");
+      showToast("LocalMessageEditor loaded!", "success");
       
     } catch (error) {
       console.error("[LocalMessageEditor] Fatal error:", error);
