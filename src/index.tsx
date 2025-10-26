@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v3.1.0: Hybrid approach - Settings page + action sheet patching
+// ✅ v3.2.0: Using dislate plugin pattern for action sheet
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -10,19 +10,20 @@
 // ============================================================================
 
 const { storage } = vendetta.plugin;
-const { findByProps } = vendetta.metro;
+const { findByProps, findByStoreName } = vendetta.metro;
 const { before, after } = vendetta.patcher;
 const { showToast } = vendetta.ui.toasts;
-const { React, ReactNative, FluxDispatcher } = vendetta.metro.common;
+const { React, ReactNative, FluxDispatcher, i18n, stylesheet } = vendetta.metro.common;
 const { getAssetIDByName } = vendetta.ui.assets;
+const { semanticColors } = vendetta.ui;
 const { findInReactTree } = vendetta.utils;
 
-const { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Modal } = ReactNative;
+const { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Modal, Image } = ReactNative;
 
-// Find modules
-const ActionSheet = findByProps("openLazy", "hideActionSheet");
-const MessageStore = findByProps("getMessage", "getMessages");
-const ChannelStore = findByProps("getChannel", "getDMFromUserId");
+// Find modules (using dislate pattern)
+const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
+const MessageStore = findByStoreName("MessageStore");
+const ChannelStore = findByStoreName("ChannelStore");
 const ActionSheetRowModule = findByProps("ActionSheetRow");
 const ActionSheetRow = ActionSheetRowModule?.ActionSheetRow;
 
@@ -417,10 +418,19 @@ function showEditModal(message) {
 // Store unpatches
 const unpatches = [];
 
-// Action sheet patch
+// Styles for icon (dislate pattern)
+const iconStyles = StyleSheet.create({
+  iconComponent: {
+    width: 24,
+    height: 24,
+    tintColor: semanticColors?.INTERACTIVE_NORMAL || "#b9bbbe"
+  }
+});
+
+// Action sheet patch (using dislate pattern)
 function patchActionSheet() {
-  if (!ActionSheet || !ActionSheet.openLazy) {
-    console.log("[LocalMessageEditor] ActionSheet.openLazy not available");
+  if (!LazyActionSheet || !LazyActionSheet.openLazy) {
+    console.log("[LocalMessageEditor] LazyActionSheet.openLazy not available");
     return null;
   }
   
@@ -429,55 +439,73 @@ function patchActionSheet() {
     return null;
   }
 
-  console.log("[LocalMessageEditor] Attempting action sheet patch...");
+  console.log("[LocalMessageEditor] Attempting action sheet patch (dislate pattern)...");
 
-  return before("openLazy", ActionSheet, ([component, args, actionMessage]) => {
+  return before("openLazy", LazyActionSheet, ([component, key, msg]) => {
     try {
-      const message = actionMessage?.message;
+      const message = msg?.message;
       
-      if (args !== "MessageLongPressActionSheet" || !message) return;
+      if (key !== "MessageLongPressActionSheet" || !message) return;
       
-      console.log("[LocalMessageEditor] ✓ Intercepted message menu:", message.id);
+      console.log("[LocalMessageEditor] ✓ Intercepted message menu for:", message.id);
       
       component.then((instance) => {
-        const unpatch = after("default", instance, (_, comp) => {
+        const unpatch = after("default", instance, (_, component) => {
           try {
             React.useEffect(() => () => { unpatch() }, []);
             
-            const buttons = findInReactTree(comp, c => c?.find?.(a => a?.props?.label?.toLowerCase?.() == 'reply'));
+            // Use dislate's button detection pattern
+            const buttons = findInReactTree(component, x => x?.[0]?.type?.name === "ActionSheetRow");
             
             if (!buttons) {
-              console.log("[LocalMessageEditor] Buttons array not found");
-              return comp;
+              console.log("[LocalMessageEditor] Buttons array not found (dislate pattern)");
+              return component;
             }
             
+            console.log("[LocalMessageEditor] ✓ Found buttons array with", buttons.length, "items");
+            
+            // Use dislate's position logic
             const position = Math.max(
-              buttons.findIndex(a => a?.props?.label?.toLowerCase?.() == 'reply'),
-              buttons.length - 1
+              buttons.findIndex((x) => x?.props?.message === i18n?.Messages?.MARK_UNREAD),
+              0
             );
             
-            const editLabel = hasEdit(message.id) ? "Edit Locally ✏️" : "Edit Locally 📝";
+            console.log("[LocalMessageEditor] Insert position:", position);
             
-            buttons.splice(position + 1, 0,
-              React.createElement(ActionSheetRow, {
-                label: editLabel,
-                subLabel: "Local Message Editor",
-                icon: React.createElement(ActionSheetRow.Icon, {
-                  source: getAssetIDByName("ic_edit_24px")
-                }),
-                onPress: () => {
-                  ActionSheet.hideActionSheet();
-                  showEditModal(message);
-                }
-              })
-            );
+            const originalMessage = MessageStore.getMessage(message.channel_id, message.id);
+            if (!originalMessage?.content && !message.content) {
+              console.log("[LocalMessageEditor] No message content found");
+              return component;
+            }
             
-            console.log("[LocalMessageEditor] ✓ Added button to action sheet");
-            return comp;
+            const editLabel = hasEdit(message.id) ? "Edit Locally ✏️" : "Edit Locally";
+            const icon = getAssetIDByName("ic_edit_24px");
+            
+            // Create button using React.createElement (dislate uses JSX but we avoid it)
+            const editButton = React.createElement(ActionSheetRow, {
+              label: editLabel,
+              icon: React.createElement(ActionSheetRow.Icon, {
+                source: icon,
+                IconComponent: () => React.createElement(Image, {
+                  resizeMode: "cover",
+                  style: iconStyles.iconComponent,
+                  source: icon
+                })
+              }),
+              onPress: () => {
+                LazyActionSheet.hideActionSheet();
+                showEditModal(originalMessage || message);
+              }
+            });
+            
+            buttons.splice(position, 0, editButton);
+            
+            console.log("[LocalMessageEditor] ✅ Added 'Edit Locally' button to action sheet!");
+            return component;
             
           } catch (e) {
             console.error("[LocalMessageEditor] Error in component patch:", e);
-            return comp;
+            return component;
           }
         });
       });
@@ -492,7 +520,7 @@ function patchActionSheet() {
 module.exports = {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading v3.1.0 (Hybrid Solution)...");
+    console.log("[LocalMessageEditor] Loading v3.2.0 (dislate pattern)...");
     console.log("[LocalMessageEditor] ========================================");
     
     try {
