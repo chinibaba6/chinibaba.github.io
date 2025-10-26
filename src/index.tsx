@@ -215,10 +215,10 @@ function showEditModal(message) {
 const unpatches = [];
 
 // Main plugin export
-export default {
+module.exports = {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.5...");
+      console.log("[LocalMessageEditor] Loading v2.3.6...");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
