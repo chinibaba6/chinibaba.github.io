@@ -209,7 +209,7 @@ const unpatches: (() => void)[] = [];
 export default {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.1...");
+      console.log("[LocalMessageEditor] Loading v2.3.2...");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -226,7 +226,7 @@ export default {
         // Patch getMessage
         if (MessageStore.getMessage) {
           try {
-            unpatches.push(after("getMessage", MessageStore, (args, res) => {
+            unpatches.push(after(MessageStore, "getMessage", (args, res) => {
               try {
                 if (res?.id && hasEdit(res.id)) {
                   return { ...res, content: getEdit(res.id) || res.content };
@@ -245,7 +245,7 @@ export default {
         // Patch getMessages
         if (MessageStore.getMessages) {
           try {
-            unpatches.push(after("getMessages", MessageStore, (args, res) => {
+            unpatches.push(after(MessageStore, "getMessages", (args, res) => {
               try {
                 if (!res) return res;
                 const messages = res._array || res;
@@ -274,7 +274,7 @@ export default {
       try {
         const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
         if (LazyActionSheet?.openLazy) {
-          unpatches.push(before("openLazy", LazyActionSheet, (args) => {
+          unpatches.push(before(LazyActionSheet, "openLazy", (args) => {
             try {
               const [component, key, props] = args;
               if (props?.message?.id && props?.message?.content) {
