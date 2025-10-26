@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.5.2: FIXED - Removed TypeScript type annotation that caused syntax error
+// ✅ v3.0.0: Complete rewrite using EXACT Antied pattern
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -10,14 +10,20 @@
 // ============================================================================
 
 const { storage } = vendetta.plugin;
-const { findByProps, findByDisplayName } = vendetta.metro;
+const { findByProps } = vendetta.metro;
 const { before, after } = vendetta.patcher;
 const { showToast } = vendetta.ui.toasts;
-const { React, ReactNative } = vendetta.metro.common;
+const { React, ReactNative, FluxDispatcher } = vendetta.metro.common;
 const { getAssetIDByName } = vendetta.ui.assets;
 const { findInReactTree } = vendetta.utils;
 
 const { View, Text, TextInput, Pressable, StyleSheet, Modal } = ReactNative;
+
+// Find modules exactly like Antied
+const ActionSheet = findByProps("openLazy", "hideActionSheet");
+const MessageStore = findByProps("getMessage", "getMessages");
+const ActionSheetRowModule = findByProps("ActionSheetRow");
+const ActionSheetRow = ActionSheetRowModule?.ActionSheetRow;
 
 // Storage helpers
 function initStorage() {
@@ -131,6 +137,16 @@ function EditModal() {
   const handleSave = () => {
     if (!message) return;
     setEdit(message.id, newContent);
+    
+    // Dispatch MESSAGE_UPDATE to refresh the UI
+    FluxDispatcher.dispatch({
+      type: "MESSAGE_UPDATE",
+      message: {
+        ...message,
+        content: newContent,
+      },
+    });
+    
     showToast("Message edited locally", "success");
     setVisible(false);
     setMessage(null);
@@ -139,6 +155,16 @@ function EditModal() {
   const handleClear = () => {
     if (!message) return;
     clearEdit(message.id);
+    
+    // Dispatch MESSAGE_UPDATE to restore original
+    FluxDispatcher.dispatch({
+      type: "MESSAGE_UPDATE",
+      message: {
+        ...message,
+        content: message.content,
+      },
+    });
+    
     showToast("Edit cleared", "info");
     setVisible(false);
     setMessage(null);
@@ -208,198 +234,196 @@ function showEditModal(message) {
 // Store unpatches
 const unpatches = [];
 
+// Action sheet patch - EXACTLY like Antied
+function patchActionSheet() {
+  if (!ActionSheet || !ActionSheet.openLazy) {
+    console.error("[LocalMessageEditor] ActionSheet.openLazy not found");
+    return null;
+  }
+  
+  if (!ActionSheetRow) {
+    console.error("[LocalMessageEditor] ActionSheetRow not found");
+    return null;
+  }
+
+  console.log("[LocalMessageEditor] Patching action sheet...");
+
+  return before("openLazy", ActionSheet, ([component, args, actionMessage]) => {
+    try {
+      const message = actionMessage?.message;
+      
+      // EXACT check from Antied
+      if (args !== "MessageLongPressActionSheet" || !message) return;
+      
+      console.log("[LocalMessageEditor] Intercepted message menu for:", message.id);
+      
+      component.then((instance) => {
+        const unpatch = after("default", instance, (_, comp) => {
+          try {
+            // Cleanup on unmount - EXACT pattern from Antied
+            React.useEffect(() => () => { unpatch() }, []);
+            
+            // Find buttons array - EXACT pattern from Antied
+            function someFunc(a) {
+              return a?.props?.label?.toLowerCase?.() == 'reply'
+            }
+            
+            const buttons = findInReactTree(comp, c => c?.find?.(someFunc));
+            
+            if (!buttons) {
+              console.log("[LocalMessageEditor] Buttons not found in tree");
+              return comp;
+            }
+            
+            console.log("[LocalMessageEditor] Found buttons array, adding edit button");
+            
+            // Find position - EXACT pattern from Antied
+            const position = Math.max(
+              buttons.findIndex(someFunc),
+              buttons.length - 1
+            );
+            
+            const editLabel = hasEdit(message.id) ? "Edit Locally (modified)" : "Edit Locally";
+            
+            // Add button - EXACT pattern from Antied using splice
+            buttons.splice(position + 1, 0,
+              React.createElement(ActionSheetRow, {
+                label: editLabel,
+                subLabel: "Local Message Editor",
+                icon: React.createElement(ActionSheetRow.Icon, {
+                  source: getAssetIDByName("ic_edit_24px")
+                }),
+                onPress: () => {
+                  ActionSheet.hideActionSheet();
+                  showEditModal(message);
+                }
+              })
+            );
+            
+            // Add clear button if edited
+            if (hasEdit(message.id)) {
+              buttons.splice(position + 2, 0,
+                React.createElement(ActionSheetRow, {
+                  label: "Clear Local Edit",
+                  subLabel: "Local Message Editor",
+                  isDestructive: true,
+                  icon: React.createElement(ActionSheetRow.Icon, {
+                    source: getAssetIDByName("ic_message_delete")
+                  }),
+                  onPress: () => {
+                    clearEdit(message.id);
+                    ActionSheet.hideActionSheet();
+                    showToast("Edit cleared", "info");
+                  }
+                })
+              );
+            }
+            
+            console.log("[LocalMessageEditor] Added buttons successfully");
+            return comp;
+            
+          } catch (e) {
+            console.error("[LocalMessageEditor] Error in component patch:", e);
+            showToast("Error patching menu", "error");
+            return comp;
+          }
+        });
+      });
+      
+    } catch (e) {
+      console.error("[LocalMessageEditor] Error in openLazy patch:", e);
+    }
+  });
+}
+
 // Main plugin export
 module.exports = {
   onLoad() {
-    console.log("[LocalMessageEditor] === START LOADING v2.5.2 ===");
+    console.log("[LocalMessageEditor] ========================================");
+    console.log("[LocalMessageEditor] Loading v3.0.0...");
+    console.log("[LocalMessageEditor] ========================================");
     
     try {
-      console.log("[LocalMessageEditor] Initializing storage...");
       initStorage();
       console.log("[LocalMessageEditor] ✓ Storage initialized");
       
-      console.log("[LocalMessageEditor] Showing toast...");
-      showToast("LocalMessageEditor v2.5.2 loading...", "info");
-      console.log("[LocalMessageEditor] ✓ Toast shown");
-
-      // Find MessageStore
-      const MessageStore = findByProps("getMessage", "getMessages");
+      // Verify modules
+      console.log("[LocalMessageEditor] ActionSheet:", !!ActionSheet);
+      console.log("[LocalMessageEditor] ActionSheetRow:", !!ActionSheetRow);
+      console.log("[LocalMessageEditor] MessageStore:", !!MessageStore);
+      
       if (!MessageStore) {
-        console.error("[LocalMessageEditor] MessageStore not found");
-        showToast("MessageStore not found", "error");
+        throw new Error("MessageStore not found");
+      }
+
+      // Patch getMessage
+      if (MessageStore.getMessage) {
+        unpatches.push(after(MessageStore, "getMessage", (args, res) => {
+          if (res?.id && hasEdit(res.id)) {
+            return { ...res, content: getEdit(res.id) || res.content };
+          }
+          return res;
+        }));
+        console.log("[LocalMessageEditor] ✓ Patched getMessage");
+      }
+
+      // Patch getMessages
+      if (MessageStore.getMessages) {
+        unpatches.push(after(MessageStore, "getMessages", (args, res) => {
+          if (!res) return res;
+          const messages = res._array || res;
+          if (Array.isArray(messages)) {
+            const edited = messages.map((msg) => {
+              if (msg?.id && hasEdit(msg.id)) {
+                return { ...msg, content: getEdit(msg.id) || msg.content };
+              }
+              return msg;
+            });
+            return res._array ? { ...res, _array: edited } : edited;
+          }
+          return res;
+        }));
+        console.log("[LocalMessageEditor] ✓ Patched getMessages");
+      }
+
+      // Patch action sheet
+      const actionSheetPatch = patchActionSheet();
+      if (actionSheetPatch) {
+        unpatches.push(actionSheetPatch);
+        console.log("[LocalMessageEditor] ✓ Patched action sheet");
       } else {
-        console.log("[LocalMessageEditor] MessageStore found");
-
-        // Patch getMessage
-        if (MessageStore.getMessage) {
-          try {
-            unpatches.push(after(MessageStore, "getMessage", (args, res) => {
-              try {
-                if (res?.id && hasEdit(res.id)) {
-                  return { ...res, content: getEdit(res.id) || res.content };
-                }
-              } catch (e) {
-                console.error("[LocalMessageEditor] Error in getMessage patch:", e);
-              }
-              return res;
-            }));
-            console.log("[LocalMessageEditor] Patched getMessage");
-          } catch (e) {
-            console.error("[LocalMessageEditor] Failed to patch getMessage:", e);
-          }
-        }
-
-        // Patch getMessages
-        if (MessageStore.getMessages) {
-          try {
-            unpatches.push(after(MessageStore, "getMessages", (args, res) => {
-              try {
-                if (!res) return res;
-                const messages = res._array || res;
-                if (Array.isArray(messages)) {
-                  const edited = messages.map((msg) => {
-                    if (msg?.id && hasEdit(msg.id)) {
-                      return { ...msg, content: getEdit(msg.id) || msg.content };
-                    }
-                    return msg;
-                  });
-                  return res._array ? { ...res, _array: edited } : edited;
-                }
-              } catch (e) {
-                console.error("[LocalMessageEditor] Error in getMessages patch:", e);
-              }
-              return res;
-            }));
-            console.log("[LocalMessageEditor] Patched getMessages");
-          } catch (e) {
-            console.error("[LocalMessageEditor] Failed to patch getMessages:", e);
-          }
-        }
+        console.error("[LocalMessageEditor] ✗ Failed to patch action sheet");
+        showToast("Action sheet patch failed", "error");
       }
 
-      // Patch action sheet using Antied pattern
-      try {
-        const ActionSheet = findByProps("openLazy", "hideActionSheet");
-        const ActionSheetRow = findByProps("ActionSheetRow")?.ActionSheetRow;
-        
-        if (!ActionSheet || !ActionSheet.openLazy) {
-          console.error("[LocalMessageEditor] ActionSheet not found");
-          showToast("ActionSheet not found", "error");
-        } else if (!ActionSheetRow) {
-          console.error("[LocalMessageEditor] ActionSheetRow not found");
-          showToast("ActionSheetRow not found", "error");
-        } else {
-          console.log("[LocalMessageEditor] Found ActionSheet and ActionSheetRow");
-          
-          unpatches.push(before(ActionSheet, "openLazy", ([component, args, actionMessage]) => {
-            try {
-              const message = actionMessage?.message;
-              
-              if (args !== "MessageLongPressActionSheet" || !message) return;
-              
-              console.log("[LocalMessageEditor] Message action sheet opened for:", message.id);
-              
-              component.then((instance) => {
-                const unpatchInstance = after(instance, "default", (_, comp) => {
-                  try {
-                    React.useEffect(() => () => { unpatchInstance() }, []);
-                    
-                    // Find the buttons array using the same pattern as Antied
-                    const buttons = findInReactTree(comp, c => c?.find?.(a => a?.props?.label?.toLowerCase?.() === 'reply'));
-                    
-                    if (!buttons) {
-                      console.log("[LocalMessageEditor] Buttons array not found");
-                      return comp;
-                    }
-                    
-                    console.log("[LocalMessageEditor] Found buttons array, adding edit button");
-                    
-                    // Find position after Reply button
-                    const position = Math.max(
-                      buttons.findIndex(a => a?.props?.label?.toLowerCase?.() === 'reply'),
-                      buttons.length - 1
-                    );
-                    
-                    const editLabel = hasEdit(message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally";
-                    
-                    // Add our button using React.createElement (not JSX)
-                    buttons.splice(position + 1, 0,
-                      React.createElement(ActionSheetRow, {
-                        label: editLabel,
-                        subLabel: "Local Message Editor",
-                        icon: React.createElement(ActionSheetRow.Icon, {
-                          source: getAssetIDByName("ic_edit_24px")
-                        }),
-                        onPress: () => {
-                          ActionSheet.hideActionSheet();
-                          showEditModal(message);
-                        }
-                      })
-                    );
-                    
-                    // If message has been edited, add clear button
-                    if (hasEdit(message.id)) {
-                      buttons.splice(position + 2, 0,
-                        React.createElement(ActionSheetRow, {
-                          label: "Clear Local Edit",
-                          subLabel: "Local Message Editor",
-                          isDestructive: true,
-                          icon: React.createElement(ActionSheetRow.Icon, {
-                            source: getAssetIDByName("ic_message_delete")
-                          }),
-                          onPress: () => {
-                            clearEdit(message.id);
-                            ActionSheet.hideActionSheet();
-                            showToast("Edit cleared", "info");
-                          }
-                        })
-                      );
-                    }
-                    
-                    return comp;
-                  } catch (e) {
-                    console.error("[LocalMessageEditor] Error in action sheet component patch:", e);
-                    return comp;
-                  }
-                });
-              });
-            } catch (e) {
-              console.error("[LocalMessageEditor] Error in action sheet patch:", e);
-            }
-          }));
-          
-          console.log("[LocalMessageEditor] ✓ Patched action sheet");
-        }
-      } catch (e) {
-        console.error("[LocalMessageEditor] Failed to patch action sheet:", e);
-      }
-
-      console.log("[LocalMessageEditor] === PLUGIN LOADED SUCCESSFULLY ===");
+      console.log("[LocalMessageEditor] ========================================");
+      console.log("[LocalMessageEditor] ✅ LOADED SUCCESSFULLY!");
+      console.log("[LocalMessageEditor] ========================================");
       showToast("LocalMessageEditor loaded! ✅", "success");
-
+      
     } catch (error) {
-      console.error("[LocalMessageEditor] === FATAL ERROR ===");
+      console.error("[LocalMessageEditor] ========================================");
+      console.error("[LocalMessageEditor] ❌ FAILED TO LOAD");
       console.error("[LocalMessageEditor]", error);
-      console.error("[LocalMessageEditor] Stack:", error?.stack);
-      try {
-        showToast("LocalMessageEditor ERROR - check logs", "error");
-      } catch (e) {
-        console.error("[LocalMessageEditor] Can't even show toast:", e);
-      }
+      console.error("[LocalMessageEditor] ========================================");
+      showToast("LocalMessageEditor: " + error.message, "error");
     }
-    
-    console.log("[LocalMessageEditor] === onLoad() COMPLETED ===");
   },
 
   onUnload() {
     console.log("[LocalMessageEditor] Unloading...");
-    unpatches.forEach((unpatch) => unpatch());
+    unpatches.forEach((unpatch) => {
+      try {
+        unpatch();
+      } catch (e) {
+        console.error("[LocalMessageEditor] Error unpatching:", e);
+      }
+    });
     unpatches.length = 0;
     setModalVisible = null;
     setCurrentMessage = null;
     console.log("[LocalMessageEditor] Unloaded");
   },
   
-  // Add Settings panel to keep modal mounted
   Settings: EditModal
 };
