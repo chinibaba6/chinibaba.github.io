@@ -16,8 +16,11 @@ import { before, after } from "@vendetta/patcher";
 import { showToast } from "@vendetta/ui/toasts";
 import { React, ReactNative as RN } from "@vendetta/metro/common";
 
-// Extract components
-const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN;
+// Get components dynamically to avoid loading issues
+const getComponents = () => {
+  const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN;
+  return { View, Text, TextInput, Pressable, StyleSheet, Modal };
+};
 
 // Helper functions to manage edits
 function initStorage() {
@@ -49,8 +52,12 @@ function clearEdit(messageId: string) {
   storage.edits = newEdits;
 }
 
-// Move styles outside component to prevent recreation on every render
-const styles = StyleSheet.create({
+// Create styles lazily
+let styles: any = null;
+const getStyles = () => {
+  if (styles) return styles;
+  const { StyleSheet } = getComponents();
+  styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.85)",
@@ -115,7 +122,9 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
   },
-});
+  });
+  return styles;
+};
 
 // Modal state - needs to be managed outside component
 let modalVisible = false;
@@ -125,6 +134,9 @@ let setCurrentMessage: ((message: { id: string; content: string } | null) => voi
 
 // Modal component
 function EditModal() {
+  const { View, Text, TextInput, Pressable, Modal } = getComponents();
+  const styles = getStyles();
+  
   const [visible, setVisible] = React.useState(false);
   const [message, setMessage] = React.useState<{ id: string; content: string } | null>(null);
   const [newContent, setNewContent] = React.useState("");
@@ -182,7 +194,7 @@ function EditModal() {
     <Modal visible={visible && !!message} transparent animationType="fade" onRequestClose={handleClose}>
       {visible && message && (
         <View style={styles.overlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+          <Pressable style={getComponents().StyleSheet.absoluteFill} onPress={handleClose} />
           <View style={styles.container}>
             <Text style={styles.header}>Edit Message Locally</Text>
             <TextInput
@@ -240,14 +252,11 @@ function showEditModal(message: { id: string; content: string }) {
 // Store unpatch functions
 const unpatches: (() => void)[] = [];
 
-// Store modal root element
-let ModalRoot: any = null;
-
 // Plugin entry point
 export default {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading plugin v2.2.6 for Revenge 301.8...");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.7 for Revenge 301.8...");
     console.log("[LocalMessageEditor] ========================================");
 
     try {
@@ -340,6 +349,8 @@ export default {
               // Wrap the component to add our button
               args[0] = () => {
                 try {
+                  const { Pressable, Text } = getComponents();
+                  const styles = getStyles();
                   const OriginalSheet = typeof originalComponent === "function" 
                     ? originalComponent() 
                     : originalComponent;
@@ -403,11 +414,6 @@ export default {
       showToast("LocalMessageEditor: Error - Check console", "error");
       // Don't re-throw - let the plugin still load
     }
-    
-    // Ensure we always initialize the modal
-    if (!ModalRoot) {
-      ModalRoot = React.createElement(EditModal);
-    }
   },
 
   onUnload() {
@@ -427,7 +433,6 @@ export default {
       // Clear modal references
       setModalVisible = null;
       setCurrentMessage = null;
-      ModalRoot = null;
 
       console.log("[LocalMessageEditor] Plugin unloaded!");
     } catch (error) {
