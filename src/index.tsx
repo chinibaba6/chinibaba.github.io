@@ -2,19 +2,18 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.3.0: Complete rewrite following working Revenge plugin patterns
-// Compatible with Revenge and Vendetta
+// ✅ v2.3.4: Fix import syntax for Revenge compatibility
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
 //
 // ============================================================================
 
-import { storage } from "@vendetta/plugin";
-import { findByProps, findByDisplayName } from "@vendetta/metro";
-import { before, after } from "@vendetta/patcher";
-import { showToast } from "@vendetta/ui/toasts";
-import { React, ReactNative } from "@vendetta/metro/common";
+const { storage } = vendetta.plugin;
+const { findByProps, findByDisplayName } = vendetta.metro;
+const { before, after } = vendetta.patcher;
+const { showToast } = vendetta.ui.toasts;
+const { React, ReactNative } = vendetta.metro.common;
 
 const { View, Text, TextInput, Pressable, StyleSheet, Modal } = ReactNative;
 
@@ -25,20 +24,20 @@ function initStorage() {
   }
 }
 
-function setEdit(messageId: string, content: string) {
+function setEdit(messageId, content) {
   if (!storage.edits) storage.edits = {};
   storage.edits[messageId] = content;
 }
 
-function getEdit(messageId: string): string | undefined {
+function getEdit(messageId) {
   return storage.edits?.[messageId];
 }
 
-function hasEdit(messageId: string): boolean {
+function hasEdit(messageId) {
   return messageId in (storage.edits || {});
 }
 
-function clearEdit(messageId: string) {
+function clearEdit(messageId) {
   if (!storage.edits) return;
   delete storage.edits[messageId];
 }
@@ -113,14 +112,14 @@ const styles = StyleSheet.create({
 
 // Modal state
 let modalVisible = false;
-let setModalVisible: ((visible: boolean) => void) | null = null;
-let currentMessage: { id: string; content: string } | null = null;
-let setCurrentMessage: ((message: { id: string; content: string } | null) => void) | null = null;
+let setModalVisible = null;
+let currentMessage = null;
+let setCurrentMessage = null;
 
 // Modal component
 function EditModal() {
   const [visible, setVisible] = React.useState(false);
-  const [message, setMessage] = React.useState<{ id: string; content: string } | null>(null);
+  const [message, setMessage] = React.useState(null);
   const [newContent, setNewContent] = React.useState("");
 
   React.useEffect(() => {
@@ -195,7 +194,7 @@ function EditModal() {
 }
 
 // Show modal helper
-function showEditModal(message: { id: string; content: string }) {
+function showEditModal(message) {
   if (setCurrentMessage && setModalVisible) {
     setCurrentMessage(message);
     setModalVisible(true);
@@ -203,13 +202,13 @@ function showEditModal(message: { id: string; content: string }) {
 }
 
 // Store unpatches
-const unpatches: (() => void)[] = [];
+const unpatches = [];
 
 // Main plugin export
 export default {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.3...");
+      console.log("[LocalMessageEditor] Loading v2.3.4...");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -219,7 +218,6 @@ export default {
       if (!MessageStore) {
         console.error("[LocalMessageEditor] MessageStore not found");
         showToast("LocalMessageEditor: MessageStore not found", "error");
-        // Don't return, let plugin load anyway
       } else {
         console.log("[LocalMessageEditor] MessageStore found");
 
@@ -250,7 +248,7 @@ export default {
                 if (!res) return res;
                 const messages = res._array || res;
                 if (Array.isArray(messages)) {
-                  const edited = messages.map((msg: any) => {
+                  const edited = messages.map((msg) => {
                     if (msg?.id && hasEdit(msg.id)) {
                       return { ...msg, content: getEdit(msg.id) || msg.content };
                     }
@@ -330,7 +328,6 @@ export default {
     } catch (error) {
       console.error("[LocalMessageEditor] Fatal error in onLoad:", error);
       showToast("LocalMessageEditor: Failed to load - check console", "error");
-      // Don't throw - let the plugin still load
     }
   },
 
