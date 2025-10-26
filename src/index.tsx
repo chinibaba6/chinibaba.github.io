@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v3.0.0: Complete rewrite using EXACT Antied pattern
+// ✅ v3.1.0: Hybrid approach - Settings page + action sheet patching
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -17,11 +17,12 @@ const { React, ReactNative, FluxDispatcher } = vendetta.metro.common;
 const { getAssetIDByName } = vendetta.ui.assets;
 const { findInReactTree } = vendetta.utils;
 
-const { View, Text, TextInput, Pressable, StyleSheet, Modal } = ReactNative;
+const { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Modal } = ReactNative;
 
-// Find modules exactly like Antied
+// Find modules
 const ActionSheet = findByProps("openLazy", "hideActionSheet");
 const MessageStore = findByProps("getMessage", "getMessages");
+const ChannelStore = findByProps("getChannel", "getDMFromUserId");
 const ActionSheetRowModule = findByProps("ActionSheetRow");
 const ActionSheetRow = ActionSheetRowModule?.ActionSheetRow;
 
@@ -29,6 +30,9 @@ const ActionSheetRow = ActionSheetRowModule?.ActionSheetRow;
 function initStorage() {
   if (!storage.edits) {
     storage.edits = {};
+  }
+  if (!storage.messageIdInput) {
+    storage.messageIdInput = "";
   }
 }
 
@@ -106,6 +110,54 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "600",
   },
+  settingsContainer: {
+    padding: 16,
+  },
+  settingsTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#ffffff",
+    marginBottom: 16,
+  },
+  settingsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginBottom: 8,
+  },
+  sectionDesc: {
+    fontSize: 14,
+    color: "#b9bbbe",
+    marginBottom: 12,
+  },
+  smallInput: {
+    backgroundColor: "#40444b",
+    color: "#dcddde",
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 8,
+  },
+  editList: {
+    marginTop: 16,
+  },
+  editItem: {
+    backgroundColor: "#40444b",
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 8,
+  },
+  editItemId: {
+    color: "#7289da",
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  editItemContent: {
+    color: "#dcddde",
+    fontSize: 14,
+  },
 });
 
 // Modal state
@@ -138,7 +190,6 @@ function EditModal() {
     if (!message) return;
     setEdit(message.id, newContent);
     
-    // Dispatch MESSAGE_UPDATE to refresh the UI
     FluxDispatcher.dispatch({
       type: "MESSAGE_UPDATE",
       message: {
@@ -147,7 +198,7 @@ function EditModal() {
       },
     });
     
-    showToast("Message edited locally", "success");
+    showToast("Message edited locally ✅", "success");
     setVisible(false);
     setMessage(null);
   };
@@ -156,7 +207,6 @@ function EditModal() {
     if (!message) return;
     clearEdit(message.id);
     
-    // Dispatch MESSAGE_UPDATE to restore original
     FluxDispatcher.dispatch({
       type: "MESSAGE_UPDATE",
       message: {
@@ -221,6 +271,139 @@ function EditModal() {
   );
 }
 
+// Settings Page Component
+function SettingsPage() {
+  const [messageId, setMessageId] = React.useState("");
+  const [channelId, setChannelId] = React.useState("");
+  const [refresh, setRefresh] = React.useState(0);
+
+  const handleEditMessage = () => {
+    if (!messageId.trim()) {
+      showToast("Please enter a message ID", "error");
+      return;
+    }
+
+    let message = null;
+    
+    // Try to find message
+    if (channelId.trim()) {
+      message = MessageStore.getMessage(channelId, messageId);
+    } else {
+      // Search all channels
+      const channels = Object.keys(MessageStore._channelMessages || {});
+      for (const chId of channels) {
+        const msg = MessageStore.getMessage(chId, messageId);
+        if (msg) {
+          message = msg;
+          break;
+        }
+      }
+    }
+
+    if (!message) {
+      showToast("Message not found! Try adding Channel ID", "error");
+      return;
+    }
+
+    if (setCurrentMessage && setModalVisible) {
+      setCurrentMessage(message);
+      setModalVisible(true);
+    }
+  };
+
+  const handleClearEdit = (msgId) => {
+    clearEdit(msgId);
+    showToast("Edit cleared", "info");
+    setRefresh(r => r + 1);
+  };
+
+  const editedMessages = Object.keys(storage.edits || {});
+
+  return React.createElement(
+    ScrollView,
+    { style: styles.settingsContainer },
+    
+    React.createElement(Text, { style: styles.settingsTitle }, "Local Message Editor"),
+    
+    React.createElement(
+      View,
+      { style: styles.settingsSection },
+      React.createElement(Text, { style: styles.sectionTitle }, "📝 Edit a Message"),
+      React.createElement(Text, { style: styles.sectionDesc }, 
+        "Method 1: Long-press a message and select 'Edit Locally' (if action sheet works)\n\n" +
+        "Method 2: Enter message ID below (copy from message link or 'Copy ID')"
+      ),
+      React.createElement(TextInput, {
+        style: styles.smallInput,
+        value: messageId,
+        onChangeText: setMessageId,
+        placeholder: "Message ID (required)",
+        placeholderTextColor: "#72767d",
+      }),
+      React.createElement(TextInput, {
+        style: styles.smallInput,
+        value: channelId,
+        onChangeText: setChannelId,
+        placeholder: "Channel ID (optional, helps find message)",
+        placeholderTextColor: "#72767d",
+      }),
+      React.createElement(
+        Pressable,
+        { 
+          style: [styles.button, styles.saveButton, { marginTop: 8 }],
+          onPress: handleEditMessage
+        },
+        React.createElement(Text, { style: styles.buttonText }, "Edit Message")
+      )
+    ),
+    
+    React.createElement(
+      View,
+      { style: styles.settingsSection },
+      React.createElement(Text, { style: styles.sectionTitle }, 
+        `✏️ Currently Edited Messages (${editedMessages.length})`
+      ),
+      React.createElement(Text, { style: styles.sectionDesc }, 
+        "Messages you've edited locally. Tap to clear an edit."
+      ),
+      editedMessages.length === 0 
+        ? React.createElement(Text, { style: { color: "#72767d", fontStyle: "italic" } }, 
+            "No edited messages yet")
+        : React.createElement(
+            View,
+            { style: styles.editList },
+            ...editedMessages.map((msgId) => 
+              React.createElement(
+                Pressable,
+                {
+                  key: msgId,
+                  style: styles.editItem,
+                  onPress: () => handleClearEdit(msgId)
+                },
+                React.createElement(Text, { style: styles.editItemId }, `ID: ${msgId}`),
+                React.createElement(Text, { 
+                  style: styles.editItemContent,
+                  numberOfLines: 2
+                }, storage.edits[msgId])
+              )
+            )
+          )
+    ),
+    
+    React.createElement(
+      View,
+      { style: styles.settingsSection },
+      React.createElement(Text, { style: styles.sectionTitle }, "ℹ️ How to Get Message/Channel ID"),
+      React.createElement(Text, { style: styles.sectionDesc }, 
+        "1. Enable Developer Mode in Discord settings\n" +
+        "2. Long-press a message\n" +
+        "3. Tap 'Copy ID' or 'Copy Message Link'\n" +
+        "4. Paste the ID above"
+      )
+    )
+  );
+}
+
 // Show modal helper
 function showEditModal(message) {
   if (setCurrentMessage && setModalVisible) {
@@ -234,58 +417,47 @@ function showEditModal(message) {
 // Store unpatches
 const unpatches = [];
 
-// Action sheet patch - EXACTLY like Antied
+// Action sheet patch
 function patchActionSheet() {
   if (!ActionSheet || !ActionSheet.openLazy) {
-    console.error("[LocalMessageEditor] ActionSheet.openLazy not found");
+    console.log("[LocalMessageEditor] ActionSheet.openLazy not available");
     return null;
   }
   
   if (!ActionSheetRow) {
-    console.error("[LocalMessageEditor] ActionSheetRow not found");
+    console.log("[LocalMessageEditor] ActionSheetRow not available");
     return null;
   }
 
-  console.log("[LocalMessageEditor] Patching action sheet...");
+  console.log("[LocalMessageEditor] Attempting action sheet patch...");
 
   return before("openLazy", ActionSheet, ([component, args, actionMessage]) => {
     try {
       const message = actionMessage?.message;
       
-      // EXACT check from Antied
       if (args !== "MessageLongPressActionSheet" || !message) return;
       
-      console.log("[LocalMessageEditor] Intercepted message menu for:", message.id);
+      console.log("[LocalMessageEditor] ✓ Intercepted message menu:", message.id);
       
       component.then((instance) => {
         const unpatch = after("default", instance, (_, comp) => {
           try {
-            // Cleanup on unmount - EXACT pattern from Antied
             React.useEffect(() => () => { unpatch() }, []);
             
-            // Find buttons array - EXACT pattern from Antied
-            function someFunc(a) {
-              return a?.props?.label?.toLowerCase?.() == 'reply'
-            }
-            
-            const buttons = findInReactTree(comp, c => c?.find?.(someFunc));
+            const buttons = findInReactTree(comp, c => c?.find?.(a => a?.props?.label?.toLowerCase?.() == 'reply'));
             
             if (!buttons) {
-              console.log("[LocalMessageEditor] Buttons not found in tree");
+              console.log("[LocalMessageEditor] Buttons array not found");
               return comp;
             }
             
-            console.log("[LocalMessageEditor] Found buttons array, adding edit button");
-            
-            // Find position - EXACT pattern from Antied
             const position = Math.max(
-              buttons.findIndex(someFunc),
+              buttons.findIndex(a => a?.props?.label?.toLowerCase?.() == 'reply'),
               buttons.length - 1
             );
             
-            const editLabel = hasEdit(message.id) ? "Edit Locally (modified)" : "Edit Locally";
+            const editLabel = hasEdit(message.id) ? "Edit Locally ✏️" : "Edit Locally 📝";
             
-            // Add button - EXACT pattern from Antied using splice
             buttons.splice(position + 1, 0,
               React.createElement(ActionSheetRow, {
                 label: editLabel,
@@ -300,38 +472,18 @@ function patchActionSheet() {
               })
             );
             
-            // Add clear button if edited
-            if (hasEdit(message.id)) {
-              buttons.splice(position + 2, 0,
-                React.createElement(ActionSheetRow, {
-                  label: "Clear Local Edit",
-                  subLabel: "Local Message Editor",
-                  isDestructive: true,
-                  icon: React.createElement(ActionSheetRow.Icon, {
-                    source: getAssetIDByName("ic_message_delete")
-                  }),
-                  onPress: () => {
-                    clearEdit(message.id);
-                    ActionSheet.hideActionSheet();
-                    showToast("Edit cleared", "info");
-                  }
-                })
-              );
-            }
-            
-            console.log("[LocalMessageEditor] Added buttons successfully");
+            console.log("[LocalMessageEditor] ✓ Added button to action sheet");
             return comp;
             
           } catch (e) {
             console.error("[LocalMessageEditor] Error in component patch:", e);
-            showToast("Error patching menu", "error");
             return comp;
           }
         });
       });
       
     } catch (e) {
-      console.error("[LocalMessageEditor] Error in openLazy patch:", e);
+      console.error("[LocalMessageEditor] Error in openLazy:", e);
     }
   });
 }
@@ -340,17 +492,12 @@ function patchActionSheet() {
 module.exports = {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading v3.0.0...");
+    console.log("[LocalMessageEditor] Loading v3.1.0 (Hybrid Solution)...");
     console.log("[LocalMessageEditor] ========================================");
     
     try {
       initStorage();
       console.log("[LocalMessageEditor] ✓ Storage initialized");
-      
-      // Verify modules
-      console.log("[LocalMessageEditor] ActionSheet:", !!ActionSheet);
-      console.log("[LocalMessageEditor] ActionSheetRow:", !!ActionSheetRow);
-      console.log("[LocalMessageEditor] MessageStore:", !!MessageStore);
       
       if (!MessageStore) {
         throw new Error("MessageStore not found");
@@ -386,44 +533,34 @@ module.exports = {
         console.log("[LocalMessageEditor] ✓ Patched getMessages");
       }
 
-      // Patch action sheet
+      // Try action sheet patch
       const actionSheetPatch = patchActionSheet();
       if (actionSheetPatch) {
         unpatches.push(actionSheetPatch);
-        console.log("[LocalMessageEditor] ✓ Patched action sheet");
+        console.log("[LocalMessageEditor] ✓ Action sheet patch applied");
       } else {
-        console.error("[LocalMessageEditor] ✗ Failed to patch action sheet");
-        showToast("Action sheet patch failed", "error");
+        console.log("[LocalMessageEditor] ⚠ Action sheet patch skipped (use Settings)");
       }
 
       console.log("[LocalMessageEditor] ========================================");
-      console.log("[LocalMessageEditor] ✅ LOADED SUCCESSFULLY!");
+      console.log("[LocalMessageEditor] ✅ LOADED! Use Settings to edit messages");
       console.log("[LocalMessageEditor] ========================================");
-      showToast("LocalMessageEditor loaded! ✅", "success");
+      showToast("LocalMessageEditor loaded! Check Settings", "success");
       
     } catch (error) {
-      console.error("[LocalMessageEditor] ========================================");
-      console.error("[LocalMessageEditor] ❌ FAILED TO LOAD");
-      console.error("[LocalMessageEditor]", error);
-      console.error("[LocalMessageEditor] ========================================");
-      showToast("LocalMessageEditor: " + error.message, "error");
+      console.error("[LocalMessageEditor] ❌ LOAD ERROR:", error);
+      showToast("Error: " + error.message, "error");
     }
   },
 
   onUnload() {
     console.log("[LocalMessageEditor] Unloading...");
-    unpatches.forEach((unpatch) => {
-      try {
-        unpatch();
-      } catch (e) {
-        console.error("[LocalMessageEditor] Error unpatching:", e);
-      }
-    });
+    unpatches.forEach((u) => { try { u() } catch(e) {} });
     unpatches.length = 0;
     setModalVisible = null;
     setCurrentMessage = null;
     console.log("[LocalMessageEditor] Unloaded");
   },
   
-  Settings: EditModal
+  Settings: SettingsPage
 };
