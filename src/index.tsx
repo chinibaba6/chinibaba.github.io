@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v3.3.0: Modular architecture (separate files)
+// ✅ v3.4.0: Enhanced debugging + slash command (/edit)
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -20,6 +20,7 @@ const { initStorage, getEdit, hasEdit } = storageModule;
 const EditModal = require("./components/EditModal").default;
 const SettingsPage = require("./components/SettingsPage").default;
 const patchActionSheet = require("./patches/actionSheet").default;
+const registerEditCommand = require("./commands/edit").default;
 
 // Find stores
 const MessageStore = findByStoreName("MessageStore");
@@ -31,7 +32,7 @@ const unpatches = [];
 module.exports = {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading v3.3.0 (Modular)...");
+    console.log("[LocalMessageEditor] Loading v3.4.0 (Debug + Commands)...");
     console.log("[LocalMessageEditor] ========================================");
     
     try {
@@ -72,19 +73,31 @@ module.exports = {
         console.log("[LocalMessageEditor] ✓ Patched getMessages");
       }
 
-      // Try action sheet patch
+      // Try action sheet patch (with enhanced debugging)
       const actionSheetPatch = patchActionSheet();
       if (actionSheetPatch) {
         unpatches.push(actionSheetPatch);
         console.log("[LocalMessageEditor] ✓ Action sheet patch applied");
       } else {
-        console.log("[LocalMessageEditor] ⚠ Action sheet patch skipped (use Settings)");
+        console.log("[LocalMessageEditor] ⚠ Action sheet patch skipped");
+      }
+
+      // Register /edit command
+      const commandUnregister = registerEditCommand();
+      if (commandUnregister) {
+        unpatches.push(commandUnregister);
+        console.log("[LocalMessageEditor] ✓ /edit command registered");
+      } else {
+        console.log("[LocalMessageEditor] ⚠ /edit command registration failed");
       }
 
       console.log("[LocalMessageEditor] ========================================");
-      console.log("[LocalMessageEditor] ✅ LOADED! Use Settings to edit messages");
+      console.log("[LocalMessageEditor] ✅ LOADED! Three ways to edit:");
+      console.log("[LocalMessageEditor]   1. Long-press message (if working)");
+      console.log("[LocalMessageEditor]   2. Settings page (always works)");
+      console.log("[LocalMessageEditor]   3. /edit command (NEW!)");
       console.log("[LocalMessageEditor] ========================================");
-      showToast("LocalMessageEditor loaded! Check Settings", "success");
+      showToast("LocalMessageEditor loaded! Try /edit command", "success");
       
     } catch (error) {
       console.error("[LocalMessageEditor] ❌ LOAD ERROR:", error);

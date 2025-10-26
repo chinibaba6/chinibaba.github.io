@@ -79,8 +79,9 @@ export default function SettingsPage() {
       { style: styles.settingsSection },
       React.createElement(Text, { style: styles.sectionTitle }, "📝 Edit a Message"),
       React.createElement(Text, { style: styles.sectionDesc }, 
-        "Method 1: Long-press a message and select 'Edit Locally' (if action sheet works)\n\n" +
-        "Method 2: Enter message ID below (copy from message link or 'Copy ID')"
+        "Method 1: Long-press a message → 'Edit Locally' (if action sheet works)\n\n" +
+        "Method 2: Use /edit command → /edit <message_id> [channel_id]\n\n" +
+        "Method 3: Enter message ID below (manual input)"
       ),
       React.createElement(TextInput, {
         style: styles.smallInput,
