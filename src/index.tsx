@@ -159,37 +159,47 @@ function EditModal() {
 
   if (!visible || !message) return null;
 
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        <View style={styles.container}>
-          <Text style={styles.header}>Edit Message Locally</Text>
-          <TextInput
-            style={styles.input}
-            value={newContent}
-            onChangeText={setNewContent}
-            placeholder="Enter new message content..."
-            placeholderTextColor="#72767d"
-            multiline
-            autoFocus
-          />
-          <View style={styles.buttonContainer}>
-            <Pressable style={[styles.button, styles.cancelButton]} onPress={handleClose}>
-              <Text style={styles.buttonText}>Cancel</Text>
-            </Pressable>
-            {hasEdit(message.id) && (
-              <Pressable style={[styles.button, styles.clearButton]} onPress={handleClear}>
-                <Text style={styles.buttonText}>Clear</Text>
-              </Pressable>
-            )}
-            <Pressable style={[styles.button, styles.saveButton]} onPress={handleSave}>
-              <Text style={styles.buttonText}>Save</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
+  return React.createElement(
+    Modal,
+    { visible: visible, transparent: true, animationType: "fade", onRequestClose: handleClose },
+    React.createElement(
+      View,
+      { style: styles.overlay },
+      React.createElement(Pressable, { style: StyleSheet.absoluteFill, onPress: handleClose }),
+      React.createElement(
+        View,
+        { style: styles.container },
+        React.createElement(Text, { style: styles.header }, "Edit Message Locally"),
+        React.createElement(TextInput, {
+          style: styles.input,
+          value: newContent,
+          onChangeText: setNewContent,
+          placeholder: "Enter new message content...",
+          placeholderTextColor: "#72767d",
+          multiline: true,
+          autoFocus: true,
+        }),
+        React.createElement(
+          View,
+          { style: styles.buttonContainer },
+          React.createElement(
+            Pressable,
+            { style: [styles.button, styles.cancelButton], onPress: handleClose },
+            React.createElement(Text, { style: styles.buttonText }, "Cancel")
+          ),
+          hasEdit(message.id) && React.createElement(
+            Pressable,
+            { style: [styles.button, styles.clearButton], onPress: handleClear },
+            React.createElement(Text, { style: styles.buttonText }, "Clear")
+          ),
+          React.createElement(
+            Pressable,
+            { style: [styles.button, styles.saveButton], onPress: handleSave },
+            React.createElement(Text, { style: styles.buttonText }, "Save")
+          )
+        )
+      )
+    )
   );
 }
 
@@ -208,7 +218,7 @@ const unpatches = [];
 export default {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.4...");
+      console.log("[LocalMessageEditor] Loading v2.3.5...");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
