@@ -11,7 +11,7 @@
 // ============================================================================
 
 import { storage } from "@vendetta/plugin";
-import { findByProps } from "@vendetta/metro";
+import { findByProps, findByDisplayName } from "@vendetta/metro";
 import { before, after } from "@vendetta/patcher";
 import { showToast } from "@vendetta/ui/toasts";
 import { React, ReactNative } from "@vendetta/metro/common";
@@ -209,7 +209,7 @@ const unpatches: (() => void)[] = [];
 export default {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.3.2...");
+      console.log("[LocalMessageEditor] Loading v2.3.3...");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -272,58 +272,57 @@ export default {
 
       // Patch action sheet for context menu
       try {
-        const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
-        if (LazyActionSheet?.openLazy) {
-          unpatches.push(before(LazyActionSheet, "openLazy", (args) => {
+        const ActionSheet = findByProps("hideActionSheet");
+        const MessageContextMenu = findByDisplayName("MessageContextMenu");
+
+        if (ActionSheet && MessageContextMenu) {
+          unpatches.push(after(MessageContextMenu, "default", (args, ret) => {
             try {
-              const [component, key, props] = args;
-              if (props?.message?.id && props?.message?.content) {
-                const originalComponent = component;
-                args[0] = () => {
-                  try {
-                    const OriginalSheet = typeof originalComponent === "function" ? originalComponent() : originalComponent;
-                    return React.createElement(
-                      React.Fragment,
-                      null,
-                      OriginalSheet,
-                      React.createElement(
-                        Pressable,
-                        {
-                          style: styles.actionSheetButton,
-                          onPress: () => {
-                            try {
-                              if (LazyActionSheet.hideActionSheet) {
-                                LazyActionSheet.hideActionSheet();
-                              }
-                              showEditModal(props.message);
-                            } catch (e) {
-                              console.error("[LocalMessageEditor] Error in modal open:", e);
-                            }
-                          },
-                        },
-                        React.createElement(
-                          Text,
-                          { style: styles.actionSheetText },
-                          hasEdit(props.message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally"
-                        )
-                      )
-                    );
-                  } catch (e) {
-                    console.error("[LocalMessageEditor] Error wrapping sheet:", e);
-                    return typeof originalComponent === "function" ? originalComponent() : originalComponent;
+              const message = args[0]?.message;
+              if (!message?.id) return ret;
+
+              const children = ret?.props?.children;
+              if (!Array.isArray(children)) return ret;
+
+              // Find menu groups
+              const menuGroups = children.filter(child => child?.type?.displayName === "MenuGroup");
+              if (menuGroups.length === 0) return ret;
+
+              const lastGroup = menuGroups[menuGroups.length - 1];
+              const buttons = lastGroup?.props?.children;
+              if (!Array.isArray(buttons)) return ret;
+
+              // Avoid duplicate
+              if (buttons.some(b => b?.props?.label?.includes?.("Edit Locally"))) return ret;
+
+              const editLabel = hasEdit(message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally";
+
+              buttons.push(
+                React.createElement(
+                  "MenuItem",
+                  {
+                    label: editLabel,
+                    icon: "ic_edit_24px",
+                    onPress: () => {
+                      ActionSheet.hideActionSheet?.();
+                      showEditModal(message);
+                    },
                   }
-                };
-              }
+                )
+              );
+
+              return ret;
             } catch (e) {
-              console.error("[LocalMessageEditor] Error in action sheet patch:", e);
+              console.error("[LocalMessageEditor] Error in context menu patch:", e);
+              return ret;
             }
           }));
-          console.log("[LocalMessageEditor] Patched action sheet");
+          console.log("[LocalMessageEditor] Patched context menu");
         } else {
-          console.warn("[LocalMessageEditor] Action sheet not found");
+          console.warn("[LocalMessageEditor] Context menu components not found");
         }
       } catch (e) {
-        console.error("[LocalMessageEditor] Failed to patch action sheet:", e);
+        console.error("[LocalMessageEditor] Failed to patch context menu:", e);
       }
 
       console.log("[LocalMessageEditor] ✅ Loaded successfully!");
