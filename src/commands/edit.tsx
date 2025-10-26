@@ -3,9 +3,7 @@
 // ============================================================================
 
 const { findByProps, findByStoreName } = vendetta.metro;
-const { registerCommand } = vendetta.commands;
 const { showToast } = vendetta.ui.toasts;
-const { showConfirmationAlert } = vendetta.ui.alerts;
 
 // Import helpers
 const utilsModule = require("../utils");
@@ -15,9 +13,21 @@ const { showEditModal } = utilsModule;
 const MessageStore = findByStoreName("MessageStore");
 const ClydeUtils = findByProps("sendBotMessage");
 
-export default function registerEditCommand() {
+function registerEditCommand() {
   try {
-    console.log("[LocalMessageEditor] Registering /edit command...");
+    console.log("[LocalMessageEditor] 🔍 Checking command registration...");
+    console.log("  - vendetta.commands:", !!vendetta.commands);
+    console.log("  - vendetta.commands.registerCommand:", !!vendetta.commands?.registerCommand);
+    
+    if (!vendetta.commands || !vendetta.commands.registerCommand) {
+      console.error("[LocalMessageEditor] ❌ Commands API not available!");
+      console.log("  - This Revenge version might not support slash commands");
+      return null;
+    }
+    
+    const { registerCommand } = vendetta.commands;
+    
+    console.log("[LocalMessageEditor] ✅ Commands API found, registering /edit...");
     
     const unregister = registerCommand({
       name: "edit",
@@ -125,8 +135,12 @@ export default function registerEditCommand() {
     return unregister;
     
   } catch (e) {
-    console.error("[LocalMessageEditor] Failed to register /edit command:", e);
+    console.error("[LocalMessageEditor] ❌ Failed to register /edit command:", e);
+    console.error("  Stack:", e.stack);
+    showToast("Commands not supported in this version", "error");
     return null;
   }
 }
+
+module.exports = { default: registerEditCommand };
 

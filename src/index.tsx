@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v3.4.0: Enhanced debugging + slash command (/edit)
+// ✅ v3.4.1: Fixed command registration + better API detection
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -32,7 +32,7 @@ const unpatches = [];
 module.exports = {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading v3.4.0 (Debug + Commands)...");
+    console.log("[LocalMessageEditor] Loading v3.4.1 (Fixed Commands)...");
     console.log("[LocalMessageEditor] ========================================");
     
     try {
@@ -82,22 +82,27 @@ module.exports = {
         console.log("[LocalMessageEditor] ⚠ Action sheet patch skipped");
       }
 
-      // Register /edit command
+      // Register /edit command (if API is available)
       const commandUnregister = registerEditCommand();
       if (commandUnregister) {
         unpatches.push(commandUnregister);
         console.log("[LocalMessageEditor] ✓ /edit command registered");
+        console.log("[LocalMessageEditor] ========================================");
+        console.log("[LocalMessageEditor] ✅ LOADED! Three ways to edit:");
+        console.log("[LocalMessageEditor]   1. Long-press message (if working)");
+        console.log("[LocalMessageEditor]   2. Settings page (always works)");
+        console.log("[LocalMessageEditor]   3. /edit command (NEW!)");
+        console.log("[LocalMessageEditor] ========================================");
+        showToast("LocalMessageEditor loaded! Try /edit or Settings", "success");
       } else {
-        console.log("[LocalMessageEditor] ⚠ /edit command registration failed");
+        console.log("[LocalMessageEditor] ⚠ /edit command not available (API not supported)");
+        console.log("[LocalMessageEditor] ========================================");
+        console.log("[LocalMessageEditor] ✅ LOADED! Two ways to edit:");
+        console.log("[LocalMessageEditor]   1. Long-press message (if working)");
+        console.log("[LocalMessageEditor]   2. Settings page (always works)");
+        console.log("[LocalMessageEditor] ========================================");
+        showToast("LocalMessageEditor loaded! Check Settings", "success");
       }
-
-      console.log("[LocalMessageEditor] ========================================");
-      console.log("[LocalMessageEditor] ✅ LOADED! Three ways to edit:");
-      console.log("[LocalMessageEditor]   1. Long-press message (if working)");
-      console.log("[LocalMessageEditor]   2. Settings page (always works)");
-      console.log("[LocalMessageEditor]   3. /edit command (NEW!)");
-      console.log("[LocalMessageEditor] ========================================");
-      showToast("LocalMessageEditor loaded! Try /edit command", "success");
       
     } catch (error) {
       console.error("[LocalMessageEditor] ❌ LOAD ERROR:", error);
