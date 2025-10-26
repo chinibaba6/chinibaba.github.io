@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.5.1: Added extensive debug logging to diagnose loading issues
+// ✅ v2.5.2: FIXED - Removed TypeScript type annotation that caused syntax error
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -211,7 +211,7 @@ const unpatches = [];
 // Main plugin export
 module.exports = {
   onLoad() {
-    console.log("[LocalMessageEditor] === START LOADING v2.5.1 ===");
+    console.log("[LocalMessageEditor] === START LOADING v2.5.2 ===");
     
     try {
       console.log("[LocalMessageEditor] Initializing storage...");
@@ -219,7 +219,7 @@ module.exports = {
       console.log("[LocalMessageEditor] ✓ Storage initialized");
       
       console.log("[LocalMessageEditor] Showing toast...");
-      showToast("LocalMessageEditor v2.5.1 loading...", "info");
+      showToast("LocalMessageEditor v2.5.2 loading...", "info");
       console.log("[LocalMessageEditor] ✓ Toast shown");
 
       // Find MessageStore
@@ -257,7 +257,7 @@ module.exports = {
                 if (!res) return res;
                 const messages = res._array || res;
                 if (Array.isArray(messages)) {
-                  const edited = messages.map((msg: any) => {
+                  const edited = messages.map((msg) => {
                     if (msg?.id && hasEdit(msg.id)) {
                       return { ...msg, content: getEdit(msg.id) || msg.content };
                     }
