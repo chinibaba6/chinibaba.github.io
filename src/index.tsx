@@ -2,7 +2,7 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.4.0: Rewritten using UI components patching approach
+// ✅ v2.5.0: Implemented working context menu using Antied pattern
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -10,10 +10,12 @@
 // ============================================================================
 
 const { storage } = vendetta.plugin;
-const { findByProps } = vendetta.metro;
-const { after } = vendetta.patcher;
+const { findByProps, findByDisplayName } = vendetta.metro;
+const { before, after } = vendetta.patcher;
 const { showToast } = vendetta.ui.toasts;
 const { React, ReactNative } = vendetta.metro.common;
+const { getAssetIDByName } = vendetta.ui.assets;
+const { findInReactTree } = vendetta.utils;
 
 const { View, Text, TextInput, Pressable, StyleSheet, Modal } = ReactNative;
 
@@ -210,8 +212,8 @@ const unpatches = [];
 module.exports = {
   onLoad() {
     try {
-      console.log("[LocalMessageEditor] Loading v2.4.1...");
-      showToast("LocalMessageEditor v2.4.1", "info");
+      console.log("[LocalMessageEditor] Loading v2.5.0...");
+      showToast("LocalMessageEditor v2.5.0", "info");
       
       initStorage();
       console.log("[LocalMessageEditor] Storage initialized");
@@ -271,36 +273,105 @@ module.exports = {
         }
       }
 
-      // Try patching using Vendetta's patcher on UI message component
+      // Patch action sheet using Antied pattern
       try {
-        // Find the Message component
-        const { components } = vendetta.metro.common;
+        const ActionSheet = findByProps("openLazy", "hideActionSheet");
+        const ActionSheetRow = findByProps("ActionSheetRow")?.ActionSheetRow;
         
-        if (components && components.Text) {
-          console.log("[LocalMessageEditor] Found components, attempting UI patch");
+        if (!ActionSheet || !ActionSheet.openLazy) {
+          console.error("[LocalMessageEditor] ActionSheet not found");
+          showToast("ActionSheet not found", "error");
+        } else if (!ActionSheetRow) {
+          console.error("[LocalMessageEditor] ActionSheetRow not found");
+          showToast("ActionSheetRow not found", "error");
+        } else {
+          console.log("[LocalMessageEditor] Found ActionSheet and ActionSheetRow");
           
-          // For now, add a programmatic way to trigger the editor
-          // User can call this from Revenge Playground:
-          // window.editMessage({ id: "message_id", content: "message content" })
-          window.editMessage = (message) => {
-            if (message && message.id && message.content) {
-              showEditModal(message);
-            } else {
-              showToast("Usage: editMessage({id: 'msg_id', content: 'text'})", "error");
+          unpatches.push(before(ActionSheet, "openLazy", ([component, args, actionMessage]) => {
+            try {
+              const message = actionMessage?.message;
+              
+              if (args !== "MessageLongPressActionSheet" || !message) return;
+              
+              console.log("[LocalMessageEditor] Message action sheet opened for:", message.id);
+              
+              component.then((instance) => {
+                const unpatchInstance = after(instance, "default", (_, comp) => {
+                  try {
+                    React.useEffect(() => () => { unpatchInstance() }, []);
+                    
+                    // Find the buttons array using the same pattern as Antied
+                    const buttons = findInReactTree(comp, c => c?.find?.(a => a?.props?.label?.toLowerCase?.() === 'reply'));
+                    
+                    if (!buttons) {
+                      console.log("[LocalMessageEditor] Buttons array not found");
+                      return comp;
+                    }
+                    
+                    console.log("[LocalMessageEditor] Found buttons array, adding edit button");
+                    
+                    // Find position after Reply button
+                    const position = Math.max(
+                      buttons.findIndex(a => a?.props?.label?.toLowerCase?.() === 'reply'),
+                      buttons.length - 1
+                    );
+                    
+                    const editLabel = hasEdit(message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally";
+                    
+                    // Add our button using React.createElement (not JSX)
+                    buttons.splice(position + 1, 0,
+                      React.createElement(ActionSheetRow, {
+                        label: editLabel,
+                        subLabel: "Local Message Editor",
+                        icon: React.createElement(ActionSheetRow.Icon, {
+                          source: getAssetIDByName("ic_edit_24px")
+                        }),
+                        onPress: () => {
+                          ActionSheet.hideActionSheet();
+                          showEditModal(message);
+                        }
+                      })
+                    );
+                    
+                    // If message has been edited, add clear button
+                    if (hasEdit(message.id)) {
+                      buttons.splice(position + 2, 0,
+                        React.createElement(ActionSheetRow, {
+                          label: "Clear Local Edit",
+                          subLabel: "Local Message Editor",
+                          isDestructive: true,
+                          icon: React.createElement(ActionSheetRow.Icon, {
+                            source: getAssetIDByName("ic_message_delete")
+                          }),
+                          onPress: () => {
+                            clearEdit(message.id);
+                            ActionSheet.hideActionSheet();
+                            showToast("Edit cleared", "info");
+                          }
+                        })
+                      );
+                    }
+                    
+                    return comp;
+                  } catch (e) {
+                    console.error("[LocalMessageEditor] Error in action sheet component patch:", e);
+                    return comp;
+                  }
+                });
+              });
+            } catch (e) {
+              console.error("[LocalMessageEditor] Error in action sheet patch:", e);
             }
-          };
+          }));
           
-          console.log("[LocalMessageEditor] Added window.editMessage() function");
-          showToast("Use: window.editMessage({id, content})", "info");
+          console.log("[LocalMessageEditor] ✓ Patched action sheet");
         }
       } catch (e) {
-        console.log("[LocalMessageEditor] UI patch not available:", e);
+        console.error("[LocalMessageEditor] Failed to patch action sheet:", e);
       }
 
-      console.log("[LocalMessageEditor] ✅ Plugin loaded!");
-      console.log("[LocalMessageEditor] Message patching: ACTIVE");
-      console.log("[LocalMessageEditor] Call window.editMessage({id, content}) to edit");
-      showToast("LocalMessageEditor loaded!", "success");
+      console.log("[LocalMessageEditor] ✅ Plugin loaded successfully!");
+      showToast("LocalMessageEditor loaded! ✅", "success");
       
     } catch (error) {
       console.error("[LocalMessageEditor] Fatal error:", error);
