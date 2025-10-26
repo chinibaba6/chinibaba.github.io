@@ -240,23 +240,14 @@ function showEditModal(message: { id: string; content: string }) {
 // Store unpatch functions
 const unpatches: (() => void)[] = [];
 
-// Settings component - required for plugin to show UI
-function SettingsPanel() {
-  return React.createElement(View, {
-    style: { padding: 16 }
-  }, 
-    React.createElement(EditModal),
-    React.createElement(Text, {
-      style: { color: "#ffffff", fontSize: 16, marginTop: 16 }
-    }, "Local Message Editor is active!")
-  );
-}
+// Store modal root element
+let ModalRoot: any = null;
 
 // Plugin entry point
 export default {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading plugin v2.2.5 for Revenge 301.8...");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.6 for Revenge 301.8...");
     console.log("[LocalMessageEditor] ========================================");
 
     try {
@@ -410,7 +401,12 @@ export default {
       console.error("[LocalMessageEditor] Error stack:", error?.stack);
       console.error("[LocalMessageEditor] ========================================");
       showToast("LocalMessageEditor: Error - Check console", "error");
-      throw error; // Re-throw so Revenge sees it
+      // Don't re-throw - let the plugin still load
+    }
+    
+    // Ensure we always initialize the modal
+    if (!ModalRoot) {
+      ModalRoot = React.createElement(EditModal);
     }
   },
 
@@ -431,13 +427,11 @@ export default {
       // Clear modal references
       setModalVisible = null;
       setCurrentMessage = null;
+      ModalRoot = null;
 
       console.log("[LocalMessageEditor] Plugin unloaded!");
     } catch (error) {
       console.error("[LocalMessageEditor] Error during unload:", error);
     }
-  },
-
-  // Export Settings panel to ensure modal is mounted
-  Settings: SettingsPanel
+  }
 };
