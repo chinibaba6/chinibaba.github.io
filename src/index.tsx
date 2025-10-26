@@ -178,38 +178,38 @@ function EditModal() {
     setMessage(null);
   };
 
-  if (!visible || !message) return null;
-
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        <View style={styles.container}>
-          <Text style={styles.header}>Edit Message Locally</Text>
-          <TextInput
-            style={styles.input}
-            value={newContent}
-            onChangeText={setNewContent}
-            placeholder="Enter new message content..."
-            placeholderTextColor="#72767d"
-            multiline
-            autoFocus
-          />
-          <View style={styles.buttonContainer}>
-            <Pressable style={[styles.button, styles.cancelButton]} onPress={handleClose}>
-              <Text style={styles.buttonText}>Cancel</Text>
-            </Pressable>
-            {hasEdit(message.id) && (
-              <Pressable style={[styles.button, styles.clearButton]} onPress={handleClear}>
-                <Text style={styles.buttonText}>Clear</Text>
+    <Modal visible={visible && !!message} transparent animationType="fade" onRequestClose={handleClose}>
+      {visible && message && (
+        <View style={styles.overlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+          <View style={styles.container}>
+            <Text style={styles.header}>Edit Message Locally</Text>
+            <TextInput
+              style={styles.input}
+              value={newContent}
+              onChangeText={setNewContent}
+              placeholder="Enter new message content..."
+              placeholderTextColor="#72767d"
+              multiline
+              autoFocus
+            />
+            <View style={styles.buttonContainer}>
+              <Pressable style={[styles.button, styles.cancelButton]} onPress={handleClose}>
+                <Text style={styles.buttonText}>Cancel</Text>
               </Pressable>
-            )}
-            <Pressable style={[styles.button, styles.saveButton]} onPress={handleSave}>
-              <Text style={styles.buttonText}>Save</Text>
-            </Pressable>
+              {hasEdit(message.id) && (
+                <Pressable style={[styles.button, styles.clearButton]} onPress={handleClear}>
+                  <Text style={styles.buttonText}>Clear</Text>
+                </Pressable>
+              )}
+              <Pressable style={[styles.button, styles.saveButton]} onPress={handleSave}>
+                <Text style={styles.buttonText}>Save</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
+      )}
     </Modal>
   );
 }
@@ -240,23 +240,29 @@ function showEditModal(message: { id: string; content: string }) {
 // Store unpatch functions
 const unpatches: (() => void)[] = [];
 
-// Settings component that renders the modal
-function Settings() {
-  return React.createElement(EditModal);
+// Settings component - required for plugin to show UI
+function SettingsPanel() {
+  return React.createElement(View, {
+    style: { padding: 16 }
+  }, 
+    React.createElement(EditModal),
+    React.createElement(Text, {
+      style: { color: "#ffffff", fontSize: 16, marginTop: 16 }
+    }, "Local Message Editor is active!")
+  );
 }
 
 // Plugin entry point
 export default {
   onLoad() {
     console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading plugin v2.2.4 for Revenge 301.8...");
+    console.log("[LocalMessageEditor] Loading plugin v2.2.5 for Revenge 301.8...");
     console.log("[LocalMessageEditor] ========================================");
 
     try {
       // Initialize storage first
       initStorage();
       console.log("[LocalMessageEditor] ✓ Storage initialized");
-      console.log("[LocalMessageEditor] ✓ Modal will be rendered by Settings component");
 
       // Find Discord modules
       const MessageStore = findByProps("getMessage", "getMessages");
@@ -264,7 +270,8 @@ export default {
       if (!MessageStore) {
         console.error("[LocalMessageEditor] ❌ MessageStore not found!");
         showToast("LocalMessageEditor: MessageStore not found", "error");
-        return;
+        console.log("[LocalMessageEditor] ❌ Plugin loaded with errors");
+        return; // This is fine - plugin still loads
       }
 
       console.log("[LocalMessageEditor] ✓ MessageStore found");
@@ -431,6 +438,6 @@ export default {
     }
   },
 
-  // Export Settings component to ensure modal is mounted
-  Settings
+  // Export Settings panel to ensure modal is mounted
+  Settings: SettingsPanel
 };
