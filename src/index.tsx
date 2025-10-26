@@ -2,8 +2,8 @@
 // LOCAL MESSAGE EDITOR - REVENGE/VENDETTA PLUGIN
 // ============================================================================
 // 
-// ✅ v2.2.4: Simplified structure following Revenge plugin patterns
-// Compatible with Revenge 301.8 and Vendetta
+// ✅ v2.3.0: Complete rewrite following working Revenge plugin patterns
+// Compatible with Revenge and Vendetta
 //
 // This plugin allows you to edit Discord messages locally without sending
 // changes to the server. Your edits are only visible to you on your device.
@@ -14,15 +14,11 @@ import { storage } from "@vendetta/plugin";
 import { findByProps } from "@vendetta/metro";
 import { before, after } from "@vendetta/patcher";
 import { showToast } from "@vendetta/ui/toasts";
-import { React, ReactNative as RN } from "@vendetta/metro/common";
+import { React, ReactNative } from "@vendetta/metro/common";
 
-// Get components dynamically to avoid loading issues
-const getComponents = () => {
-  const { View, Text, TextInput, Pressable, StyleSheet, Modal } = RN;
-  return { View, Text, TextInput, Pressable, StyleSheet, Modal };
-};
+const { View, Text, TextInput, Pressable, StyleSheet, Modal } = ReactNative;
 
-// Helper functions to manage edits
+// Storage helpers
 function initStorage() {
   if (!storage.edits) {
     storage.edits = {};
@@ -31,10 +27,7 @@ function initStorage() {
 
 function setEdit(messageId: string, content: string) {
   if (!storage.edits) storage.edits = {};
-  storage.edits = {
-    ...storage.edits,
-    [messageId]: content,
-  };
+  storage.edits[messageId] = content;
 }
 
 function getEdit(messageId: string): string | undefined {
@@ -47,17 +40,11 @@ function hasEdit(messageId: string): boolean {
 
 function clearEdit(messageId: string) {
   if (!storage.edits) return;
-  const newEdits = { ...storage.edits };
-  delete newEdits[messageId];
-  storage.edits = newEdits;
+  delete storage.edits[messageId];
 }
 
-// Create styles lazily
-let styles: any = null;
-const getStyles = () => {
-  if (styles) return styles;
-  const { StyleSheet } = getComponents();
-  styles = StyleSheet.create({
+// Styles
+const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.85)",
@@ -74,7 +61,7 @@ const getStyles = () => {
   },
   header: {
     fontSize: 20,
-    fontWeight: "bold" as const,
+    fontWeight: "bold",
     color: "#ffffff",
     marginBottom: 16,
   },
@@ -85,10 +72,10 @@ const getStyles = () => {
     padding: 12,
     marginBottom: 16,
     minHeight: 100,
-    textAlignVertical: "top" as const,
+    textAlignVertical: "top",
   },
   buttonContainer: {
-    flexDirection: "row" as const,
+    flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
   },
@@ -97,7 +84,7 @@ const getStyles = () => {
     paddingVertical: 10,
     borderRadius: 4,
     flex: 1,
-    alignItems: "center" as const,
+    alignItems: "center",
   },
   saveButton: {
     backgroundColor: "#5865f2",
@@ -110,7 +97,7 @@ const getStyles = () => {
   },
   buttonText: {
     color: "#ffffff",
-    fontWeight: "600" as const,
+    fontWeight: "600",
   },
   actionSheetButton: {
     padding: 16,
@@ -122,11 +109,9 @@ const getStyles = () => {
     color: "#ffffff",
     fontSize: 16,
   },
-  });
-  return styles;
-};
+});
 
-// Modal state - needs to be managed outside component
+// Modal state
 let modalVisible = false;
 let setModalVisible: ((visible: boolean) => void) | null = null;
 let currentMessage: { id: string; content: string } | null = null;
@@ -134,14 +119,10 @@ let setCurrentMessage: ((message: { id: string; content: string } | null) => voi
 
 // Modal component
 function EditModal() {
-  const { View, Text, TextInput, Pressable, Modal } = getComponents();
-  const styles = getStyles();
-  
   const [visible, setVisible] = React.useState(false);
   const [message, setMessage] = React.useState<{ id: string; content: string } | null>(null);
   const [newContent, setNewContent] = React.useState("");
 
-  // Expose state setters
   React.useEffect(() => {
     setModalVisible = setVisible;
     setCurrentMessage = (msg) => {
@@ -150,7 +131,6 @@ function EditModal() {
         setNewContent(getEdit(msg.id) || msg.content);
       }
     };
-
     return () => {
       setModalVisible = null;
       setCurrentMessage = null;
@@ -159,30 +139,18 @@ function EditModal() {
 
   const handleSave = () => {
     if (!message) return;
-    
-    try {
-      setEdit(message.id, newContent);
-      showToast("Message edited locally", "success");
-      setVisible(false);
-      setMessage(null);
-    } catch (error) {
-      console.error("[LocalMessageEditor] Error saving edit:", error);
-      showToast("Failed to save edit", "error");
-    }
+    setEdit(message.id, newContent);
+    showToast("Message edited locally", "success");
+    setVisible(false);
+    setMessage(null);
   };
 
   const handleClear = () => {
     if (!message) return;
-    
-    try {
-      clearEdit(message.id);
-      showToast("Edit cleared", "info");
-      setVisible(false);
-      setMessage(null);
-    } catch (error) {
-      console.error("[LocalMessageEditor] Error clearing edit:", error);
-      showToast("Failed to clear edit", "error");
-    }
+    clearEdit(message.id);
+    showToast("Edit cleared", "info");
+    setVisible(false);
+    setMessage(null);
   };
 
   const handleClose = () => {
@@ -190,253 +158,149 @@ function EditModal() {
     setMessage(null);
   };
 
+  if (!visible || !message) return null;
+
   return (
-    <Modal visible={visible && !!message} transparent animationType="fade" onRequestClose={handleClose}>
-      {visible && message && (
-        <View style={styles.overlay}>
-          <Pressable style={getComponents().StyleSheet.absoluteFill} onPress={handleClose} />
-          <View style={styles.container}>
-            <Text style={styles.header}>Edit Message Locally</Text>
-            <TextInput
-              style={styles.input}
-              value={newContent}
-              onChangeText={setNewContent}
-              placeholder="Enter new message content..."
-              placeholderTextColor="#72767d"
-              multiline
-              autoFocus
-            />
-            <View style={styles.buttonContainer}>
-              <Pressable style={[styles.button, styles.cancelButton]} onPress={handleClose}>
-                <Text style={styles.buttonText}>Cancel</Text>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        <View style={styles.container}>
+          <Text style={styles.header}>Edit Message Locally</Text>
+          <TextInput
+            style={styles.input}
+            value={newContent}
+            onChangeText={setNewContent}
+            placeholder="Enter new message content..."
+            placeholderTextColor="#72767d"
+            multiline
+            autoFocus
+          />
+          <View style={styles.buttonContainer}>
+            <Pressable style={[styles.button, styles.cancelButton]} onPress={handleClose}>
+              <Text style={styles.buttonText}>Cancel</Text>
+            </Pressable>
+            {hasEdit(message.id) && (
+              <Pressable style={[styles.button, styles.clearButton]} onPress={handleClear}>
+                <Text style={styles.buttonText}>Clear</Text>
               </Pressable>
-              {hasEdit(message.id) && (
-                <Pressable style={[styles.button, styles.clearButton]} onPress={handleClear}>
-                  <Text style={styles.buttonText}>Clear</Text>
-                </Pressable>
-              )}
-              <Pressable style={[styles.button, styles.saveButton]} onPress={handleSave}>
-                <Text style={styles.buttonText}>Save</Text>
-              </Pressable>
-            </View>
+            )}
+            <Pressable style={[styles.button, styles.saveButton]} onPress={handleSave}>
+              <Text style={styles.buttonText}>Save</Text>
+            </Pressable>
           </View>
         </View>
-      )}
+      </View>
     </Modal>
   );
 }
 
-// Helper to show modal
+// Show modal helper
 function showEditModal(message: { id: string; content: string }) {
-  try {
-    if (setCurrentMessage && setModalVisible) {
-      setCurrentMessage(message);
-      setModalVisible(true);
-    } else {
-      console.warn("[LocalMessageEditor] Modal not ready yet");
-      showToast("Opening editor...", "info");
-      // Try again after a short delay
-      setTimeout(() => {
-        if (setCurrentMessage && setModalVisible) {
-          setCurrentMessage(message);
-          setModalVisible(true);
-        }
-      }, 100);
-    }
-  } catch (error) {
-    console.error("[LocalMessageEditor] Error showing modal:", error);
-    showToast("Failed to open editor", "error");
+  if (setCurrentMessage && setModalVisible) {
+    setCurrentMessage(message);
+    setModalVisible(true);
   }
 }
 
-// Store unpatch functions
+// Store unpatches
 const unpatches: (() => void)[] = [];
 
-// Plugin entry point
+// Main plugin export
 export default {
   onLoad() {
-    console.log("[LocalMessageEditor] ========================================");
-    console.log("[LocalMessageEditor] Loading plugin v2.2.7 for Revenge 301.8...");
-    console.log("[LocalMessageEditor] ========================================");
+    console.log("[LocalMessageEditor] Loading v2.3.0...");
+    
+    initStorage();
+    console.log("[LocalMessageEditor] Storage initialized");
 
-    try {
-      // Initialize storage first
-      initStorage();
-      console.log("[LocalMessageEditor] ✓ Storage initialized");
-
-      // Find Discord modules
-      const MessageStore = findByProps("getMessage", "getMessages");
-      
-      if (!MessageStore) {
-        console.error("[LocalMessageEditor] ❌ MessageStore not found!");
-        showToast("LocalMessageEditor: MessageStore not found", "error");
-        console.log("[LocalMessageEditor] ❌ Plugin loaded with errors");
-        return; // This is fine - plugin still loads
-      }
-
-      console.log("[LocalMessageEditor] ✓ MessageStore found");
-
-      // Patch getMessage to inject edited content
-      if (MessageStore.getMessage) {
-        const unpatch = after(MessageStore, "getMessage", (args, res) => {
-          if (!res) return res;
-          
-          try {
-            if (res.id && hasEdit(res.id)) {
-              return {
-                ...res,
-                content: getEdit(res.id) || res.content,
-              };
-            }
-          } catch (error) {
-            console.error("[LocalMessageEditor] Error in getMessage patch:", error);
-          }
-          
-          return res;
-        });
-        unpatches.push(unpatch);
-        console.log("[LocalMessageEditor] ✓ Patched getMessage");
-      }
-
-      // Patch getMessages to inject edited content for message lists
-      if (MessageStore.getMessages) {
-        const unpatch = after(MessageStore, "getMessages", (args, res) => {
-          if (!res) return res;
-
-          try {
-            // Handle different possible return formats
-            const messages = res._array || res;
-            
-            if (Array.isArray(messages)) {
-              const edited = messages.map((msg: any) => {
-                if (msg?.id && hasEdit(msg.id)) {
-                  return {
-                    ...msg,
-                    content: getEdit(msg.id) || msg.content,
-                  };
-                }
-                return msg;
-              });
-
-              // Preserve original structure
-              if (res._array) {
-                return { ...res, _array: edited };
-              }
-              return edited;
-            }
-          } catch (error) {
-            console.error("[LocalMessageEditor] Error in getMessages patch:", error);
-          }
-
-          return res;
-        });
-        unpatches.push(unpatch);
-        console.log("[LocalMessageEditor] ✓ Patched getMessages");
-      }
-
-      // Try to find and patch context menu
-      const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
-      
-      if (LazyActionSheet?.openLazy) {
-        const unpatch = before(LazyActionSheet, "openLazy", (args) => {
-          try {
-            const [component, key, props] = args;
-
-            // Check if this is a message context menu
-            if (props?.message?.id && props?.message?.content) {
-              const originalComponent = component;
-              
-              // Wrap the component to add our button
-              args[0] = () => {
-                try {
-                  const { Pressable, Text } = getComponents();
-                  const styles = getStyles();
-                  const OriginalSheet = typeof originalComponent === "function" 
-                    ? originalComponent() 
-                    : originalComponent;
-                  
-                  return React.createElement(
-                    React.Fragment,
-                    null,
-                    OriginalSheet,
-                    React.createElement(
-                      Pressable,
-                      {
-                        style: styles.actionSheetButton,
-                        onPress: () => {
-                          try {
-                            if (LazyActionSheet.hideActionSheet) {
-                              LazyActionSheet.hideActionSheet();
-                            }
-                            
-                            // Show edit modal
-                            showEditModal(props.message);
-                          } catch (error) {
-                            console.error("[LocalMessageEditor] Error showing modal:", error);
-                            showToast("Failed to open editor", "error");
-                          }
-                        },
-                      },
-                      React.createElement(
-                        Text,
-                        { style: styles.actionSheetText },
-                        hasEdit(props.message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally"
-                      )
-                    )
-                  );
-                } catch (error) {
-                  console.error("[LocalMessageEditor] Error wrapping action sheet:", error);
-                  return typeof originalComponent === "function" ? originalComponent() : originalComponent;
-                }
-              };
-            }
-          } catch (error) {
-            console.error("[LocalMessageEditor] Error in action sheet patch:", error);
-          }
-        });
-        unpatches.push(unpatch);
-        console.log("[LocalMessageEditor] ✓ Patched action sheet");
-      } else {
-        console.warn("[LocalMessageEditor] ⚠️ Action sheet not found - context menu won't work");
-      }
-
-      console.log("[LocalMessageEditor] ========================================");
-      console.log("[LocalMessageEditor] ✅ Plugin loaded successfully!");
-      console.log("[LocalMessageEditor] ========================================");
-      showToast("LocalMessageEditor loaded ✅", "success");
-
-    } catch (error) {
-      console.error("[LocalMessageEditor] ========================================");
-      console.error("[LocalMessageEditor] ❌ FAILED TO LOAD");
-      console.error("[LocalMessageEditor] Error:", error);
-      console.error("[LocalMessageEditor] Error stack:", error?.stack);
-      console.error("[LocalMessageEditor] ========================================");
-      showToast("LocalMessageEditor: Error - Check console", "error");
-      // Don't re-throw - let the plugin still load
+    // Find MessageStore
+    const MessageStore = findByProps("getMessage", "getMessages");
+    if (!MessageStore) {
+      console.error("[LocalMessageEditor] MessageStore not found");
+      showToast("LocalMessageEditor: MessageStore not found", "error");
+      return;
     }
+    console.log("[LocalMessageEditor] MessageStore found");
+
+    // Patch getMessage
+    if (MessageStore.getMessage) {
+      unpatches.push(after("getMessage", MessageStore, (args, res) => {
+        if (res?.id && hasEdit(res.id)) {
+          return { ...res, content: getEdit(res.id) || res.content };
+        }
+        return res;
+      }));
+      console.log("[LocalMessageEditor] Patched getMessage");
+    }
+
+    // Patch getMessages
+    if (MessageStore.getMessages) {
+      unpatches.push(after("getMessages", MessageStore, (args, res) => {
+        if (!res) return res;
+        const messages = res._array || res;
+        if (Array.isArray(messages)) {
+          const edited = messages.map((msg: any) => {
+            if (msg?.id && hasEdit(msg.id)) {
+              return { ...msg, content: getEdit(msg.id) || msg.content };
+            }
+            return msg;
+          });
+          return res._array ? { ...res, _array: edited } : edited;
+        }
+        return res;
+      }));
+      console.log("[LocalMessageEditor] Patched getMessages");
+    }
+
+    // Patch action sheet for context menu
+    const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
+    if (LazyActionSheet?.openLazy) {
+      unpatches.push(before("openLazy", LazyActionSheet, (args) => {
+        const [component, key, props] = args;
+        if (props?.message?.id && props?.message?.content) {
+          const originalComponent = component;
+          args[0] = () => {
+            const OriginalSheet = typeof originalComponent === "function" ? originalComponent() : originalComponent;
+            return React.createElement(
+              React.Fragment,
+              null,
+              OriginalSheet,
+              React.createElement(
+                Pressable,
+                {
+                  style: styles.actionSheetButton,
+                  onPress: () => {
+                    if (LazyActionSheet.hideActionSheet) {
+                      LazyActionSheet.hideActionSheet();
+                    }
+                    showEditModal(props.message);
+                  },
+                },
+                React.createElement(
+                  Text,
+                  { style: styles.actionSheetText },
+                  hasEdit(props.message.id) ? "✏️ Edit Locally (modified)" : "📝 Edit Locally"
+                )
+              )
+            );
+          };
+        }
+      }));
+      console.log("[LocalMessageEditor] Patched action sheet");
+    }
+
+    console.log("[LocalMessageEditor] ✅ Loaded successfully!");
+    showToast("LocalMessageEditor loaded ✅", "success");
   },
 
   onUnload() {
-    console.log("[LocalMessageEditor] Unloading plugin...");
+    console.log("[LocalMessageEditor] Unloading...");
+    unpatches.forEach((unpatch) => unpatch());
+    unpatches.length = 0;
+    setModalVisible = null;
+    setCurrentMessage = null;
+    console.log("[LocalMessageEditor] Unloaded");
+  },
 
-    try {
-      // Unpatch all modifications
-      unpatches.forEach((unpatch) => {
-        try {
-          unpatch();
-        } catch (error) {
-          console.error("[LocalMessageEditor] Error unpatching:", error);
-        }
-      });
-      unpatches.length = 0;
-
-      // Clear modal references
-      setModalVisible = null;
-      setCurrentMessage = null;
-
-      console.log("[LocalMessageEditor] Plugin unloaded!");
-    } catch (error) {
-      console.error("[LocalMessageEditor] Error during unload:", error);
-    }
-  }
+  Settings: EditModal,
 };
