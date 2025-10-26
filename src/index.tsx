@@ -253,7 +253,7 @@ module.exports = {
                 if (!res) return res;
                 const messages = res._array || res;
                 if (Array.isArray(messages)) {
-                  const edited = messages.map((msg) => {
+                  const edited = messages.map((msg: any) => {
                     if (msg?.id && hasEdit(msg.id)) {
                       return { ...msg, content: getEdit(msg.id) || msg.content };
                     }
