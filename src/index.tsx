@@ -474,27 +474,53 @@ function patchActionSheet() {
           
           console.log("[LocalMessageEditor] 🔍 Finding buttons...");
           
-          // dislate pattern
-          const buttons = findInReactTree(component, x => x?.[0]?.type?.name === "ActionSheetRow");
+          // Get original message from store (like ANTIED does)
+          let originalMessage = null;
+          if (message?.channel_id && message?.id) {
+            originalMessage = MessageStore.getMessage(message?.channel_id, message?.id);
+          }
+          
+          if (!originalMessage) {
+            console.log("[LocalMessageEditor] ⚠️ Original message not found");
+            return component;
+          }
+          
+          if (!originalMessage?.content && !message.content) {
+            console.log("[LocalMessageEditor] ⚠️ No message content");
+            return component;
+          }
+          
+          // Helper function to check if an element is an ActionSheetRow (ANTIED pattern)
+          function isActionSheetRow(a) {
+            return a?.type === ActionSheetRow || 
+                   a?.type?.name === "ActionSheetRow" || 
+                   a?.type?.displayName === "ActionSheetRow";
+          }
+          
+          // Find buttons array using ANTIED pattern: find array that contains ActionSheetRow
+          const buttons = findInReactTree(component, c => c?.find?.(isActionSheetRow));
           
           if (!buttons) {
             console.error("[LocalMessageEditor] ❌ Buttons not found!");
             return component;
           }
           
-          console.log("[LocalMessageEditor] ✅ Found", buttons.length, "buttons");
+          console.log("[LocalMessageEditor] ✅ Found buttons array with", buttons.length, "items");
           
-          const markUnreadIndex = buttons.findIndex((x) => x?.props?.message === i18n?.Messages?.MARK_UNREAD);
-          const position = Math.max(markUnreadIndex, 0);
+          // Find position to insert (after "Reply" button if exists, like ANTIED does)
+          function findReplyButton(a) {
+            return a?.props?.label?.toLowerCase?.() === "reply" || 
+                   a?.props?.label === i18n?.Messages?.MESSAGE_ACTION_REPLY;
+          }
+          
+          const position = Math.max(
+            buttons.findIndex(findReplyButton), 
+            0
+          );
           
           console.log("[LocalMessageEditor] 📍 Inserting at position:", position);
           
-          const originalMessage = MessageStore.getMessage(message.channel_id, message.id);
-          if (!originalMessage?.content && !message.content) {
-            console.log("[LocalMessageEditor] ⚠️ No message content");
-            return component;
-          }
-          
+          // Create edit button
           const editLabel = hasEdit(message.id) ? "Edit Locally ✏️" : "Edit Locally";
           const icon = getAssetIDByName("ic_edit_24px");
           
@@ -515,6 +541,7 @@ function patchActionSheet() {
             }
           });
           
+          // Insert button directly into the array (mutate like ANTIED does)
           buttons.splice(position, 0, editButton);
           
           console.log("[LocalMessageEditor] ✅✅✅ Button added!");
@@ -522,6 +549,7 @@ function patchActionSheet() {
           
         } catch (e) {
           console.error("[LocalMessageEditor] ❌ Error:", e);
+          console.error(e.stack);
           return component;
         }
       });
