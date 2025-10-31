@@ -473,6 +473,8 @@ function patchActionSheet() {
           React.useEffect(() => () => { unpatch() }, []);
           
           console.log("[LocalMessageEditor] 🔍 Finding buttons...");
+          console.log("[LocalMessageEditor] Component type:", typeof component);
+          console.log("[LocalMessageEditor] Component keys:", Object.keys(component || {}));
           
           // Get original message from store (like ANTIED does)
           let originalMessage = null;
@@ -490,35 +492,62 @@ function patchActionSheet() {
             return component;
           }
           
-          // Helper function to check if an element is an ActionSheetRow (ANTIED pattern)
-          function isActionSheetRow(a) {
-            return a?.type === ActionSheetRow || 
-                   a?.type?.name === "ActionSheetRow" || 
-                   a?.type?.displayName === "ActionSheetRow";
+          // Use ANTIED's exact pattern: find array by looking for a specific button label
+          // This is more reliable than checking for ActionSheetRow type
+          function findReplyButton(a) {
+            return a?.props?.label?.toLowerCase?.() === "reply" || 
+                   a?.props?.label === i18n?.Messages?.MESSAGE_ACTION_REPLY ||
+                   a?.props?.label === i18n?.Messages?.MESSAGE_ACTION_REPLY_PLURAL;
           }
           
-          // Find buttons array using ANTIED pattern: find array that contains ActionSheetRow
-          const buttons = findInReactTree(component, c => c?.find?.(isActionSheetRow));
+          // Find buttons array using ANTIED pattern: find array that contains "Reply" button
+          let buttons = findInReactTree(component, c => c?.find?.(findReplyButton));
           
           if (!buttons) {
-            console.error("[LocalMessageEditor] ❌ Buttons not found!");
-            return component;
+            console.error("[LocalMessageEditor] ❌ Buttons not found! Trying alternative search...");
+            
+            // Alternative: try finding by ActionSheetRow type
+            function isActionSheetRow(a) {
+              return a?.type === ActionSheetRow || 
+                     a?.type?.name === "ActionSheetRow" || 
+                     a?.type?.displayName === "ActionSheetRow";
+            }
+            
+            const buttonsAlt = findInReactTree(component, c => {
+              if (!Array.isArray(c)) return false;
+              return c.length > 0 && c.find(isActionSheetRow);
+            });
+            
+            if (buttonsAlt) {
+              console.log("[LocalMessageEditor] ✅ Found buttons using alternative method");
+              buttons = buttonsAlt;
+            } else {
+              console.error("[LocalMessageEditor] ❌ Buttons not found with any method!");
+              console.log("[LocalMessageEditor] Component tree sample:", JSON.stringify(component, null, 2).substring(0, 500));
+              return component;
+            }
           }
           
           console.log("[LocalMessageEditor] ✅ Found buttons array with", buttons.length, "items");
           
-          // Find position to insert (after "Reply" button if exists, like ANTIED does)
-          function findReplyButton(a) {
-            return a?.props?.label?.toLowerCase?.() === "reply" || 
-                   a?.props?.label === i18n?.Messages?.MESSAGE_ACTION_REPLY;
-          }
-          
-          const position = Math.max(
-            buttons.findIndex(findReplyButton), 
-            0
+          // Check if button already exists (prevents duplicates when working with other plugins)
+          const editLabelBase = "Edit Locally";
+          const alreadyExists = buttons.some(btn => 
+            btn?.props?.label?.includes(editLabelBase) || 
+            btn?.props?.label?.includes("Edit Locally")
           );
           
-          console.log("[LocalMessageEditor] 📍 Inserting at position:", position);
+          if (alreadyExists) {
+            console.log("[LocalMessageEditor] ⚠️ Button already exists, skipping duplicate");
+            return component;
+          }
+          
+          // Find position to insert (after "Reply" button if exists, like ANTIED does)
+          // This works well with other plugins that also insert after Reply
+          const replyIndex = buttons.findIndex(findReplyButton);
+          const position = replyIndex >= 0 ? replyIndex + 1 : 0;
+          
+          console.log("[LocalMessageEditor] 📍 Inserting at position:", position, "(after Reply button)");
           
           // Create edit button
           const editLabel = hasEdit(message.id) ? "Edit Locally ✏️" : "Edit Locally";
@@ -542,9 +571,10 @@ function patchActionSheet() {
           });
           
           // Insert button directly into the array (mutate like ANTIED does)
+          // This works with other plugins - each plugin can safely add its own button
           buttons.splice(position, 0, editButton);
           
-          console.log("[LocalMessageEditor] ✅✅✅ Button added!");
+          console.log("[LocalMessageEditor] ✅✅✅ Button added! (compatible with other plugins)");
           return component;
           
         } catch (e) {
